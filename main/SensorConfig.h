@@ -68,7 +68,6 @@ void bmeActivation() {
   }
 }
 
-
 //BNO085 (I2C)
 
 #define BNO08X_RESET -1
