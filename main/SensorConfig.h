@@ -4,7 +4,7 @@
 #include <Adafruit_BME280.h>
 #include <Adafruit_BNO08x.h>
 #include <SD.h>
-//#include <RH_RF95.h>
+#include <RH_RF95.h>
 
 //Left Side
 #define RX1 1
@@ -202,8 +202,6 @@ void bnoActivation() {
 
 //XTSD 512MB (SPI)
 
-//File myFile;
-
 Sd2Card card;
 SdVolume volume;
 SdFile root;
@@ -213,7 +211,7 @@ void xtsdActivation() {
  pinMode(CS_FLASH, OUTPUT);
 
  if (!card.init(SPI_HALF_SPEED, CS_FLASH)) {
-    Serial.println("initialization failed. Things to check:");
+    Serial.println("SD initialization failed. Things to check:");
     Serial.println("* is a card inserted?");
     Serial.println("* is your wiring correct?");
     Serial.println("* did you change the chipSelect pin to match your shield or module?");
@@ -262,46 +260,44 @@ void xtsdActivation() {
 
 }
 
-
 //LoRa RFM95W
 
 #define RF95_FREQ 915.0
 
-//RH_RF95 rf95(CS_LORA, INT_LORA);
+RH_RF95 rf95(CS_LORA, INT_LORA);
 
-//void loraActivate() {
+void loraActivate() {
 
-  //pinMode(RST, OUTPUT);
+  pinMode(RST, OUTPUT);
 
-  //digitalWrite(RST, HIGH);
+  digitalWrite(RST, HIGH);
 
   //manual reset
   //digitalWrite(RST, LOW);
-  //delay(10);
-  //digitalWrite(RST, HIGH);
-  //delay(10);
+  delay(10);
+  digitalWrite(RST, HIGH);
+  delay(10);
 
-  //while (!rf95.init()) {
-    //Serial.println("LoRa radio init failed");
-    //while (1);
+  while (!rf95.init()) {
+    Serial.println("LoRa radio init failed");
+    while (1);
       
-  //}
-  //Serial.println("LoRa radio init OK!");
+  }
+  Serial.println("LoRa radio init OK!");
 
   // Defaults after init are 434.0MHz, modulation GFSK_Rb250Fd250, +13dbM
-  //if (!rf95.setFrequency(RF95_FREQ)) {
-    //Serial.println("setFrequency failed");
-    //while (1)
-    //  ;
-  //}
-  //Serial.print("Set Freq to: ");
-  //Serial.println(RF95_FREQ);
+  if (!rf95.setFrequency(RF95_FREQ)) {
+    Serial.println("setFrequency failed");
+    while (1);
+  }
+  Serial.print("Set Freq to: ");
+  Serial.println(RF95_FREQ);
 
   // Defaults after init are 434.0MHz, 13dBm, Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on
 
   // The default transmitter power is 13dBm, using PA_BOOST.
   // If you are using RFM95/96/97/98 modules which uses the PA_BOOST transmitter pin, then
   // you can set transmitter powers from 5 to 23 dBm:
-  //rf95.setTxPower(23, true);
+  rf95.setTxPower(23, true);
   
-//}
+}
