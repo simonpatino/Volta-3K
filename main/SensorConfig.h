@@ -5,10 +5,12 @@
 #include <Adafruit_BNO08x.h>
 #include <SD.h>
 #include <RH_RF95.h>
+#include <TinyGPSPlus.h>
+#include <SoftwareSerial.h>
 
 //Left Side
-#define RX1 1
-#define TX1 2
+#define RX1 0
+#define TX1 1
 #define CS_FLASH 3
 #define INT_LORA 4
 #define B 6
@@ -175,7 +177,7 @@ void bnoActivation() {
   // Try to initialize!
   if (!bno08x.begin_I2C()) {
     Serial.println("Failed to find BNO08x chip");
-    while (1) delay(10); 
+    while (1) delay(10);
   }
 
   Serial.println("BNO08x Found!");
@@ -199,7 +201,6 @@ void bnoActivation() {
   delay(100);
 }
 
-
 //XTSD 512MB (SPI)
 
 Sd2Card card;
@@ -208,20 +209,20 @@ SdFile root;
 
 void xtsdActivation() {
 
- pinMode(CS_FLASH, OUTPUT);
+  pinMode(CS_FLASH, OUTPUT);
 
- if (!card.init(SPI_HALF_SPEED, CS_FLASH)) {
+  if (!card.init(SPI_HALF_SPEED, CS_FLASH)) {
     Serial.println("SD initialization failed. Things to check:");
     Serial.println("* is a card inserted?");
     Serial.println("* is your wiring correct?");
     Serial.println("* did you change the chipSelect pin to match your shield or module?");
     return;
   } else {
-   Serial.println("Wiring is correct and a card is present.");
+    Serial.println("Wiring is correct and a card is present.");
   }
 
   Serial.print("\nCard type: ");
-  switch(card.type()) {
+  switch (card.type()) {
     case SD_CARD_TYPE_SD1:
       Serial.println("SD1");
       break;
@@ -244,12 +245,12 @@ void xtsdActivation() {
   Serial.print("\nVolume type is FAT");
   Serial.println(volume.fatType(), DEC);
   Serial.println();
-  
-  volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
-  volumesize *= volume.clusterCount();       // we'll have a lot of clusters
+
+  volumesize = volume.blocksPerCluster();  // clusters are collections of blocks
+  volumesize *= volume.clusterCount();     // we'll have a lot of clusters
   if (volumesize < 8388608ul) {
     Serial.print("Volume size (bytes): ");
-    Serial.println(volumesize * 512);        // SD card blocks are always 512 bytes
+    Serial.println(volumesize * 512);  // SD card blocks are always 512 bytes
   }
   Serial.print("Volume size (Kbytes): ");
   volumesize /= 2;
@@ -257,7 +258,6 @@ void xtsdActivation() {
   Serial.print("Volume size (Mbytes): ");
   volumesize /= 1024;
   Serial.println(volumesize);
-
 }
 
 //LoRa RFM95W
@@ -266,7 +266,7 @@ void xtsdActivation() {
 
 RH_RF95 rf95(CS_LORA, INT_LORA);
 
-void loraActivate() {
+void loraActivation() {
 
   pinMode(RST, OUTPUT);
 
@@ -280,15 +280,16 @@ void loraActivate() {
 
   while (!rf95.init()) {
     Serial.println("LoRa radio init failed");
-    while (1);
-      
+    while (1)
+      ;
   }
   Serial.println("LoRa radio init OK!");
 
   // Defaults after init are 434.0MHz, modulation GFSK_Rb250Fd250, +13dbM
   if (!rf95.setFrequency(RF95_FREQ)) {
     Serial.println("setFrequency failed");
-    while (1);
+    while (1)
+      ;
   }
   Serial.print("Set Freq to: ");
   Serial.println(RF95_FREQ);
@@ -299,5 +300,17 @@ void loraActivate() {
   // If you are using RFM95/96/97/98 modules which uses the PA_BOOST transmitter pin, then
   // you can set transmitter powers from 5 to 23 dBm:
   rf95.setTxPower(23, true);
-  
+}
+
+//GPS
+
+static const uint32_t GPsBaud = 4800;
+
+TinyGPSPlus gps;
+
+
+void gpsActivation() {
+
+  Serial1.begin(GPsBaud);
+
 }
