@@ -2,11 +2,11 @@
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-#include <Adafruit_BNO08x.h>
-#include <SD.h>
-#include <RH_RF95.h>
-#include <TinyGPSPlus.h>
-#include <SoftwareSerial.h>
+//#include <Adafruit_BNO08x.h>
+//#include <SD.h>
+//#include <RH_RF95.h>
+//#include <TinyGPSPlus.h>
+//#include <SoftwareSerial.h>
 
 //Left Side
 #define RX1 0
@@ -116,201 +116,116 @@ void bmeActivation() {
   Serial.println("BME280 Found!");
 }
 
-//BNO085 (I2C)
-
-#define BNO08X_RESET -1
-
-Adafruit_BNO08x bno08x(BNO08X_RESET);
-
-// Here is where you define the sensor outputs you want to receive
-void setReports(void) {
-  Serial.println("Setting desired reports");
-  if (!bno08x.enableReport(SH2_ACCELEROMETER)) {
-    Serial.println("Could not enable accelerometer");
-  }
-  if (!bno08x.enableReport(SH2_GYROSCOPE_CALIBRATED)) {
-    Serial.println("Could not enable gyroscope");
-  }
-  if (!bno08x.enableReport(SH2_MAGNETIC_FIELD_CALIBRATED)) {
-    Serial.println("Could not enable magnetic field calibrated");
-  }
-  if (!bno08x.enableReport(SH2_LINEAR_ACCELERATION)) {
-    Serial.println("Could not enable linear acceleration");
-  }
-  if (!bno08x.enableReport(SH2_GRAVITY)) {
-    Serial.println("Could not enable gravity vector");
-  }
-  if (!bno08x.enableReport(SH2_ROTATION_VECTOR)) {
-    Serial.println("Could not enable rotation vector");
-  }
-  if (!bno08x.enableReport(SH2_GEOMAGNETIC_ROTATION_VECTOR)) {
-    Serial.println("Could not enable geomagnetic rotation vector");
-  }
-  if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR)) {
-    Serial.println("Could not enable game rotation vector");
-  }
-  if (!bno08x.enableReport(SH2_STEP_COUNTER)) {
-    Serial.println("Could not enable step counter");
-  }
-  if (!bno08x.enableReport(SH2_STABILITY_CLASSIFIER)) {
-    Serial.println("Could not enable stability classifier");
-  }
-  if (!bno08x.enableReport(SH2_RAW_ACCELEROMETER)) {
-    Serial.println("Could not enable raw accelerometer");
-  }
-  if (!bno08x.enableReport(SH2_RAW_GYROSCOPE)) {
-    Serial.println("Could not enable raw gyroscope");
-  }
-  if (!bno08x.enableReport(SH2_RAW_MAGNETOMETER)) {
-    Serial.println("Could not enable raw magnetometer");
-  }
-  if (!bno08x.enableReport(SH2_SHAKE_DETECTOR)) {
-    Serial.println("Could not enable shake detector");
-  }
-  if (!bno08x.enableReport(SH2_PERSONAL_ACTIVITY_CLASSIFIER)) {
-    Serial.println("Could not enable personal activity classifier");
-  }
-}
-
-void bnoActivation() {
-
-  // Try to initialize!
-  if (!bno08x.begin_I2C()) {
-    Serial.println("Failed to find BNO08x chip");
-    while (1) delay(10);
-  }
-
-  Serial.println("BNO08x Found!");
-
-  for (int n = 0; n < bno08x.prodIds.numEntries; n++) {
-    Serial.print("Part ");
-    Serial.print(bno08x.prodIds.entry[n].swPartNumber);
-    Serial.print(": Version :");
-    Serial.print(bno08x.prodIds.entry[n].swVersionMajor);
-    Serial.print(".");
-    Serial.print(bno08x.prodIds.entry[n].swVersionMinor);
-    Serial.print(".");
-    Serial.print(bno08x.prodIds.entry[n].swVersionPatch);
-    Serial.print(" Build ");
-    Serial.println(bno08x.prodIds.entry[n].swBuildNumber);
-  }
-
-  setReports();
-
-  Serial.println("Reading events");
-  delay(100);
-}
-
 //XTSD 512MB (SPI)
 
-Sd2Card card;
-SdVolume volume;
-SdFile root;
+//Sd2Card card;
+//SdVolume volume;
+//SdFile root;
 
-void xtsdActivation() {
+//void xtsdActivation() {
 
-  pinMode(CS_FLASH, OUTPUT);
+  //pinMode(CS_FLASH, OUTPUT);
 
-  if (!card.init(SPI_HALF_SPEED, CS_FLASH)) {
-    Serial.println("SD initialization failed. Things to check:");
-    Serial.println("* is a card inserted?");
-    Serial.println("* is your wiring correct?");
-    Serial.println("* did you change the chipSelect pin to match your shield or module?");
-    return;
-  } else {
-    Serial.println("Wiring is correct and a card is present.");
-  }
+  //if (!card.init(SPI_HALF_SPEED, CS_FLASH)) {
+    //Serial.println("SD initialization failed. Things to check:");
+    //Serial.println("* is a card inserted?");
+    //Serial.println("* is your wiring correct?");
+    //Serial.println("* did you change the chipSelect pin to match your shield or module?");
+    //return;
+  //} else {
+   // Serial.println("Wiring is correct and a card is present.");
+  //}
 
-  Serial.print("\nCard type: ");
-  switch (card.type()) {
-    case SD_CARD_TYPE_SD1:
-      Serial.println("SD1");
-      break;
-    case SD_CARD_TYPE_SD2:
-      Serial.println("SD2");
-      break;
-    case SD_CARD_TYPE_SDHC:
-      Serial.println("SDHC");
-      break;
-    default:
-      Serial.println("Unknown");
-  }
+  //Serial.print("\nCard type: ");
+  //switch (card.type()) {
+    //case SD_CARD_TYPE_SD1:
+      //Serial.println("SD1");
+      //break;
+    //case SD_CARD_TYPE_SD2:
+      //Serial.println("SD2");
+      //break;
+    //ase SD_CARD_TYPE_SDHC:
+      //Serial.println("SDHC");
+      //break;
+    //default:
+      //Serial.println("Unknown");
+  //}
 
-  if (!volume.init(card)) {
-    Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
-    return;
-  }
+  //if (!volume.init(card)) {
+    //Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
+    //return;
+  //}
 
-  uint32_t volumesize;
-  Serial.print("\nVolume type is FAT");
-  Serial.println(volume.fatType(), DEC);
-  Serial.println();
+  //uint32_t volumesize;
+  //Serial.print("\nVolume type is FAT");
+  //Serial.println(volume.fatType(), DEC);
+  //Serial.println();
 
-  volumesize = volume.blocksPerCluster();  // clusters are collections of blocks
-  volumesize *= volume.clusterCount();     // we'll have a lot of clusters
-  if (volumesize < 8388608ul) {
-    Serial.print("Volume size (bytes): ");
-    Serial.println(volumesize * 512);  // SD card blocks are always 512 bytes
-  }
-  Serial.print("Volume size (Kbytes): ");
-  volumesize /= 2;
-  Serial.println(volumesize);
-  Serial.print("Volume size (Mbytes): ");
-  volumesize /= 1024;
-  Serial.println(volumesize);
-}
+  //volumesize = volume.blocksPerCluster();  // clusters are collections of blocks
+  //volumesize *= volume.clusterCount();     // we'll have a lot of clusters
+  //if (volumesize < 8388608ul) {
+    //Serial.print("Volume size (bytes): ");
+    //Serial.println(volumesize * 512);  // SD card blocks are always 512 bytes
+  //}
+  //Serial.print("Volume size (Kbytes): ");
+  //volumesize /= 2;
+  //Serial.println(volumesize);
+  //Serial.print("Volume size (Mbytes): ");
+  //volumesize /= 1024;
+  //Serial.println(volumesize);
+//}
 
 //LoRa RFM95W
 
-#define RF95_FREQ 915.0
+//#define RF95_FREQ 915.0
 
-RH_RF95 rf95(CS_LORA, INT_LORA);
+//RH_RF95 rf95(CS_LORA, INT_LORA);
 
-void loraActivation() {
+//void loraActivation() {
 
-  pinMode(RST, OUTPUT);
+  //pinMode(RST, OUTPUT);
 
-  digitalWrite(RST, HIGH);
+  //digitalWrite(RST, HIGH);
 
   //manual reset
   //digitalWrite(RST, LOW);
-  delay(10);
-  digitalWrite(RST, HIGH);
-  delay(10);
+  //delay(10);
+  //digitalWrite(RST, HIGH);
+  //delay(10);
 
-  while (!rf95.init()) {
-    Serial.println("LoRa radio init failed");
-    while (1)
-      ;
-  }
-  Serial.println("LoRa radio init OK!");
+  //while (!rf95.init()) {
+    //Serial.println("LoRa radio init failed");
+    //while (1)
+      //;
+  //}
+  //erial.println("LoRa radio init OK!");
 
   // Defaults after init are 434.0MHz, modulation GFSK_Rb250Fd250, +13dbM
-  if (!rf95.setFrequency(RF95_FREQ)) {
-    Serial.println("setFrequency failed");
-    while (1)
-      ;
-  }
-  Serial.print("Set Freq to: ");
-  Serial.println(RF95_FREQ);
+  //if (!rf95.setFrequency(RF95_FREQ)) {
+    //Serial.println("setFrequency failed");
+    //while (1)
+    //  ;
+  //}
+  //Serial.print("Set Freq to: ");
+  //Serial.println(RF95_FREQ);
 
   // Defaults after init are 434.0MHz, 13dBm, Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on
 
   // The default transmitter power is 13dBm, using PA_BOOST.
   // If you are using RFM95/96/97/98 modules which uses the PA_BOOST transmitter pin, then
   // you can set transmitter powers from 5 to 23 dBm:
-  rf95.setTxPower(23, true);
-}
+  //rf95.setTxPower(23, true);
+//}
 
 //GPS
 
-static const uint32_t GPsBaud = 4800;
+//static const uint32_t GPsBaud = 4800;
 
-TinyGPSPlus gps;
+//TinyGPSPlus gps;
 
 
-void gpsActivation() {
+//void gpsActivation() {
 
-  Serial1.begin(GPsBaud);
+  //Serial1.begin(GPsBaud);
 
-}
+//}

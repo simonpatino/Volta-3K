@@ -1,20 +1,21 @@
 #include "SensorConfig.h"
 
+float bmeVariables[4] = {};
+
+
 void setup() {
   
   Serial.begin(115200);
 
   bmeActivation();
 
-  float bmeVariables[4] = {};
+  //bnoActivation();
 
-  bnoActivation();
+  //xtsdActivation();
 
-  xtsdActivation();
+  //loraActivation();
 
-  loraActivation();
-
-  gpsActivation();
+  //gpsActivation();
 
 }
 
@@ -25,6 +26,4 @@ void loop() {
   bmeVariables[2] =  bme.readAltitude(SEALEVELPRESSURE_HPA); //m
   bmeVariables[3] =  bme.readHumidity(); //%
   
-  
-
 }
