@@ -2,8 +2,9 @@
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-//#include <Adafruit_BNO08x.h>
-//#include <SD.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
+#include <SD.h>
 //#include <RH_RF95.h>
 //#include <TinyGPSPlus.h>
 //#include <SoftwareSerial.h>
@@ -11,8 +12,9 @@
 //Left Side
 #define RX1 0
 #define TX1 1
-#define CS_FLASH 3
-#define INT_LORA 4
+#define CS_FLASH 2
+#define CS02 4
+#define CS03 5
 #define B 6
 #define G 7
 #define R 8
@@ -24,38 +26,36 @@
 #define SDA 25
 #define AOUT1 26
 #define BOUT1 27
-#define CS02 28
-#define CS03 29
-#define P_CHK5A 30
-#define PYRO5_B 31
-#define P_CHK5B 32
+#define INT_LORA 29
+#define PYRO5_A 30
+#define P_CHK5B 31
+#define PYRO5_B 32
 
 //Right Side
 #define BOUT2 23
 #define AOUT2 22
-#define PYRO1_A 21
-#define P_CHK1A 20
-#define PYRO1_B 19
-#define P_CHK1B 18
-#define PYRO2_A 17
-#define P_CHK2A 16
-#define PYRO2_B 15
-#define P_CHK2B 14
-#define PYRO3_A 13
-#define SCK0 41
-#define P_CHK3A 40
-#define PYRO3_B 39
-#define P_CHK3B 38
-#define PYRO4_A 37
-#define P_CHK4A 36
-#define PYRO4_B 35
-#define P_CHK4B 34
-#define PYRO5_A 33
+#define P_CHK1A 21
+#define PYRO1_A 20
+#define P_CHK1B 19
+#define PYRO1_B 18
+#define P_CHK2A 17
+#define PYRO2_A 16
+#define P_CHK2B 15
+#define PYRO2_B 14
+#define SCK0 13
+#define P_CHK3A 41
+#define PYRO3_A 40
+#define P_CHK3B 39
+#define PYRO3_B 38
+#define P_CHK4A 37
+#define PYRO4_A 36
+#define P_CHK4B 35
+#define PYRO4_B 34
+#define P_CHK5A 33
 
 //Function to eject pyro
 
 void ejectEvent(int pinToEject) {
-
 
   digitalWrite(pinToEject, HIGH);
 
@@ -67,7 +67,6 @@ void ejectEvent(int pinToEject) {
 //Function to check if pyro has continuity
 
 int pyroCheck(int pyroChannel) {
-
 
   int state = digitalRead(pyroChannel);
 
@@ -100,7 +99,7 @@ void bmeActivation() {
 
   unsigned status;
 
-  status = bme.begin();
+  status = bme.begin(0x77, &Wire2);
 
   if (!status) {
     Serial.println("Could not find a valid BME280 sensor, check wiring, address, sensor ID!");
@@ -116,65 +115,49 @@ void bmeActivation() {
   Serial.println("BME280 Found!");
 }
 
+
+//bno055
+
+Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28, &Wire2);
+
+void bnoActivation() {
+
+   if(!bno.begin())
+  {
+    /* There was a problem detecting the BNO055 ... check your connections */
+    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    while(1);
+  } else {
+
+    Serial.println("BNO055 Found!");
+
+  }
+  
+}
+
+
+
+
 //XTSD 512MB (SPI)
 
-//Sd2Card card;
-//SdVolume volume;
-//SdFile root;
+File dataFile;
 
-//void xtsdActivation() {
+void xtsdActivation() {
 
-  //pinMode(CS_FLASH, OUTPUT);
+  SPI.setMOSI(11);  // Audio shield has MOSI on pin 7
+  SPI.setMISO(12);  // Audio shield has MOSI on pin 7
+  SPI.setSCK(13);  // Audio shield has SCK on pin 14
 
-  //if (!card.init(SPI_HALF_SPEED, CS_FLASH)) {
-    //Serial.println("SD initialization failed. Things to check:");
-    //Serial.println("* is a card inserted?");
-    //Serial.println("* is your wiring correct?");
-    //Serial.println("* did you change the chipSelect pin to match your shield or module?");
-    //return;
-  //} else {
-   // Serial.println("Wiring is correct and a card is present.");
-  //}
+  if (!SD.begin(CS_FLASH)) {
+    Serial.println("SD initialization failed!");
+    return;
+  }
+    Serial.println("SD Found!");
 
-  //Serial.print("\nCard type: ");
-  //switch (card.type()) {
-    //case SD_CARD_TYPE_SD1:
-      //Serial.println("SD1");
-      //break;
-    //case SD_CARD_TYPE_SD2:
-      //Serial.println("SD2");
-      //break;
-    //ase SD_CARD_TYPE_SDHC:
-      //Serial.println("SDHC");
-      //break;
-    //default:
-      //Serial.println("Unknown");
-  //}
-
-  //if (!volume.init(card)) {
-    //Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
-    //return;
-  //}
-
-  //uint32_t volumesize;
-  //Serial.print("\nVolume type is FAT");
-  //Serial.println(volume.fatType(), DEC);
-  //Serial.println();
-
-  //volumesize = volume.blocksPerCluster();  // clusters are collections of blocks
-  //volumesize *= volume.clusterCount();     // we'll have a lot of clusters
-  //if (volumesize < 8388608ul) {
-    //Serial.print("Volume size (bytes): ");
-    //Serial.println(volumesize * 512);  // SD card blocks are always 512 bytes
-  //}
-  //Serial.print("Volume size (Kbytes): ");
-  //volumesize /= 2;
-  //Serial.println(volumesize);
-  //Serial.print("Volume size (Mbytes): ");
-  //volumesize /= 1024;
-  //Serial.println(volumesize);
-//}
-
+}
+  
+  
+  
 //LoRa RFM95W
 
 //#define RF95_FREQ 915.0
