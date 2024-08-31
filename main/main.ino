@@ -4,9 +4,13 @@ float bmeVariables[4] = {};
 float bnoVariables[3] = {};
 float message[7] = {};
 
+long pyro_timer;
+
 void setup() {
   
   Serial.begin(115200);
+
+  checkActivation();
 
   bmeActivation();
 
@@ -18,7 +22,7 @@ void setup() {
 
   //gpsActivation();
 
-  ejectEvent(PYRO1_A);
+/*   ejectEvent(PYRO1_A);
   //ejectEvent(PYRO1_B);
 
   ejectEvent(PYRO2_A);
@@ -31,7 +35,7 @@ void setup() {
   //ejectEvent(PYRO4_B);
 
   ejectEvent(PYRO5_A);
-  //ejectEvent(PYRO5_B);
+  //ejectEvent(PYRO5_B); */
 
   analogWrite(R , 255);
   analogWrite(G , 255);
@@ -77,23 +81,35 @@ dataFile = SD.open("Volta.txt", FILE_WRITE);
     Serial.println("Error opening data.txt");
   }
 
-  Serial.print("X: ");
+  Serial.print("| Ti: ");
+  Serial.print(millis()/1000);
+  Serial.print(" | X: ");
   Serial.print(euler.x());
-  Serial.print(" Y: ");
+  Serial.print(" | Y: ");
   Serial.print(euler.y());
-  Serial.print(" Z: ");
+  Serial.print(" | Z: ");
   Serial.print(euler.z());
-  Serial.print(" Temp: ");
+  Serial.print(" | Te: ");
   Serial.print(bmeVariables[0]); 
-  Serial.print(" Pressure: ");
+  Serial.print(" | P: ");
   Serial.print(bmeVariables[1]); 
-  Serial.print(" Altitude: ");
+  Serial.print(" | ALT: ");
   Serial.print(bmeVariables[2]); 
-  Serial.print(" Humidity: ");
-  Serial.println(bmeVariables[3]); 
-
-  
+  Serial.print(" | HUM: ");
+  Serial.print(bmeVariables[3]); 
+  Serial.print(" | PYRO1A: ");
+  pyroCheck(PYRO_CHECKS[0][0]); 
+  Serial.println("");
 
   delay(500);
+
+  
+  if(millis() > 10000 && millis() < 10800) {
+    //firePyro(0,'a');
+    pyro_timer = millis();
+  } else {
+    killPyros();
+  }
+
   
 }

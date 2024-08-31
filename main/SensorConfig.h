@@ -53,7 +53,54 @@
 #define PYRO4_B 34
 #define P_CHK5A 33
 
+const int PYRO_FIRE[5][2] = {
+  {PYRO1_A, PYRO1_B},
+  {PYRO2_A, PYRO2_B},
+  {PYRO3_A, PYRO3_B},
+  {PYRO4_A, PYRO4_B},
+  {PYRO5_A, PYRO5_B}
+};
+const int PYRO_CHECKS[5][2] = {
+  {P_CHK1A, P_CHK1B},
+  {P_CHK2A, P_CHK2B},
+  {P_CHK3A, P_CHK3B},
+  {P_CHK4A, P_CHK4B},
+  {P_CHK5A, P_CHK5B}
+};
+
 //Function to eject pyro
+
+void  checkActivation() {
+  for(int i = 0 ; i < 5; i++) {
+    for (int j = 0; j < 2; j++) {
+      pinMode(PYRO_CHECKS[i][j], INPUT);
+      pinMode(PYRO_FIRE[i][j], OUTPUT);
+      digitalWrite(PYRO_FIRE[i][j], LOW);
+    }
+  } 
+}
+
+void killPyros() {
+  for(int i = 0 ; i < 5; i++) {
+    for (int j = 0; j < 2; j++) {
+      digitalWrite(PYRO_FIRE[i][j], LOW);
+    }
+  } 
+}
+
+bool firePyro(int id_num, char id_letter) {
+  int j;
+  if(id_letter == 'a' || id_letter == 'A') {
+    j = 0;
+  } else if(id_letter == 'b' || id_letter == 'B') {
+    j = 1;
+  } else {
+    return 0;
+  }
+  Serial.println(PYRO_FIRE[id_num][j]);
+  digitalWrite(PYRO_FIRE[id_num][j], HIGH);
+  return 1;
+}
 
 void ejectEvent(int pinToEject) {
 
@@ -72,18 +119,20 @@ int pyroCheck(int pyroChannel) {
 
   if (state) {
 
-    String message = "The channel  " + String(pyroChannel) + " is ON";
+    //String message = "The channel  " + String(pyroChannel) + " is ON";
+    String message = "ON";
 
-    Serial.println(message);
+    Serial.print(message);
 
     return 1;
 
   } else {
 
 
-    String message = "The channel  " + String(pyroChannel) + " is OFF";
+    //String message = "The channel  " + String(pyroChannel) + " is OFF";
+    String message = "OFF";
 
-    Serial.println(message);
+    Serial.print(message);
 
     return 0;
   }
