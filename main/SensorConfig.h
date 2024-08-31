@@ -5,9 +5,9 @@
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
 #include <SD.h>
-//#include <RH_RF95.h>
-//#include <TinyGPSPlus.h>
-//#include <SoftwareSerial.h>
+#include "SparkFun_Ublox_Arduino_Library.h"
+#include <MicroNMEA.h>                      
+#include <LoRa.h>
 
 //Left Side
 #define RX1 0
@@ -53,46 +53,53 @@
 #define PYRO4_B 34
 #define P_CHK5A 33
 
+/* ----- LORA SETTINGS ----- */
+#define LORA_FREQ 915E6
+#define LORA_SYNC 0xAF
+#define LORA_NSS 10
+#define LORA_RST 9
+#define LORA_DI0 29
+
 const int PYRO_FIRE[5][2] = {
-  {PYRO1_A, PYRO1_B},
-  {PYRO2_A, PYRO2_B},
-  {PYRO3_A, PYRO3_B},
-  {PYRO4_A, PYRO4_B},
-  {PYRO5_A, PYRO5_B}
+  { PYRO1_A, PYRO1_B },
+  { PYRO2_A, PYRO2_B },
+  { PYRO3_A, PYRO3_B },
+  { PYRO4_A, PYRO4_B },
+  { PYRO5_A, PYRO5_B }
 };
 const int PYRO_CHECKS[5][2] = {
-  {P_CHK1A, P_CHK1B},
-  {P_CHK2A, P_CHK2B},
-  {P_CHK3A, P_CHK3B},
-  {P_CHK4A, P_CHK4B},
-  {P_CHK5A, P_CHK5B}
+  { P_CHK1A, P_CHK1B },
+  { P_CHK2A, P_CHK2B },
+  { P_CHK3A, P_CHK3B },
+  { P_CHK4A, P_CHK4B },
+  { P_CHK5A, P_CHK5B }
 };
 
 //Function to eject pyro
 
-void  checkActivation() {
-  for(int i = 0 ; i < 5; i++) {
+void checkActivation() {
+  for (int i = 0; i < 5; i++) {
     for (int j = 0; j < 2; j++) {
       pinMode(PYRO_CHECKS[i][j], INPUT);
       pinMode(PYRO_FIRE[i][j], OUTPUT);
       digitalWrite(PYRO_FIRE[i][j], LOW);
     }
-  } 
+  }
 }
 
 void killPyros() {
-  for(int i = 0 ; i < 5; i++) {
+  for (int i = 0; i < 5; i++) {
     for (int j = 0; j < 2; j++) {
       digitalWrite(PYRO_FIRE[i][j], LOW);
     }
-  } 
+  }
 }
 
 bool firePyro(int id_num, char id_letter) {
   int j;
-  if(id_letter == 'a' || id_letter == 'A') {
+  if (id_letter == 'a' || id_letter == 'A') {
     j = 0;
-  } else if(id_letter == 'b' || id_letter == 'B') {
+  } else if (id_letter == 'b' || id_letter == 'B') {
     j = 1;
   } else {
     return 0;
@@ -171,17 +178,15 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28, &Wire2);
 
 void bnoActivation() {
 
-   if(!bno.begin())
-  {
+  if (!bno.begin()) {
     /* There was a problem detecting the BNO055 ... check your connections */
     Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-    while(1);
+    while (1)
+      ;
   } else {
 
     Serial.println("BNO055 Found!");
-
   }
-  
 }
 
 
@@ -195,60 +200,65 @@ void xtsdActivation() {
 
   SPI.setMOSI(11);  // Audio shield has MOSI on pin 7
   SPI.setMISO(12);  // Audio shield has MOSI on pin 7
-  SPI.setSCK(13);  // Audio shield has SCK on pin 14
+  SPI.setSCK(13);   // Audio shield has SCK on pin 14
 
   if (!SD.begin(CS_FLASH)) {
     Serial.println("SD initialization failed!");
     return;
   }
-    Serial.println("SD Found!");
-
+  Serial.println("SD Found!");
 }
-  
-  
-  
+
+//GPS
+
+SFE_UBLOX_GPS myGPS;
+
+char nmeaBuffer[100];
+MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
+
+void gpsActivation() {
+
+  Wire2.begin();
+
+  if (myGPS.begin(Wire2) == false) {
+    Serial.println(F("Ublox GPS not detected at default I2C address. Please check wiring. Freezing."));
+    while (1)
+      ;
+  }
+}
+
+void SFE_UBLOX_GPS::processNMEA(char incoming)
+{
+  //Take the incoming char from the Ublox I2C port and pass it on to the MicroNMEA lib
+  //for sentence cracking
+  nmea.process(incoming);
+}
+
+
 //LoRa RFM95W
 
 //#define RF95_FREQ 915.0
 
 //RH_RF95 rf95(CS_LORA, INT_LORA);
 
-//void loraActivation() {
+void loraActivation() {
+  LoRa.setPins(LORA_NSS, LORA_RST, LORA_DI0);
 
-  //pinMode(RST, OUTPUT);
+  if (!LoRa.begin(LORA_FREQ)) {
+    Serial.println("LoRa init failed");
+  }
 
-  //digitalWrite(RST, HIGH);
+  LoRa.setSyncWord(LORA_SYNC);
+  LoRa.setSpreadingFactor(10);
+  LoRa.setSignalBandwidth(250E3);
+  // LoRa.setTxPower(17);
+}
 
-  //manual reset
-  //digitalWrite(RST, LOW);
-  //delay(10);
-  //digitalWrite(RST, HIGH);
-  //delay(10);
-
-  //while (!rf95.init()) {
-    //Serial.println("LoRa radio init failed");
-    //while (1)
-      //;
-  //}
-  //erial.println("LoRa radio init OK!");
-
-  // Defaults after init are 434.0MHz, modulation GFSK_Rb250Fd250, +13dbM
-  //if (!rf95.setFrequency(RF95_FREQ)) {
-    //Serial.println("setFrequency failed");
-    //while (1)
-    //  ;
-  //}
-  //Serial.print("Set Freq to: ");
-  //Serial.println(RF95_FREQ);
-
-  // Defaults after init are 434.0MHz, 13dBm, Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on
-
-  // The default transmitter power is 13dBm, using PA_BOOST.
-  // If you are using RFM95/96/97/98 modules which uses the PA_BOOST transmitter pin, then
-  // you can set transmitter powers from 5 to 23 dBm:
-  //rf95.setTxPower(23, true);
-//}
-
+void transmitLoRa(String message) {
+  LoRa.beginPacket();
+  LoRa.print(message);
+  LoRa.endPacket();
+}
 //GPS
 
 //static const uint32_t GPsBaud = 4800;
@@ -258,6 +268,6 @@ void xtsdActivation() {
 
 //void gpsActivation() {
 
-  //Serial1.begin(GPsBaud);
+//Serial1.begin(GPsBaud);
 
 //}

@@ -2,7 +2,8 @@
 
 float bmeVariables[4] = {};
 float bnoVariables[3] = {};
-float message[7] = {};
+float message[18] = {};
+
 
 long pyro_timer;
 
@@ -18,9 +19,9 @@ void setup() {
 
   xtsdActivation();
 
-  //loraActivation();
+  loraActivation();
 
-  //gpsActivation();
+  gpsActivation();
 
 /*   ejectEvent(PYRO1_A);
   //ejectEvent(PYRO1_B);
@@ -64,6 +65,20 @@ message[4] = bnoVariables[0];
 message[5] = bnoVariables[1];
 message[6] = bnoVariables[2];
 
+message[7] = 1;//PYRO_CHECKS[0][0] ;
+message[8] = 1;//PYRO_CHECKS[0][1] ;
+message[9] = 1;//PYRO_CHECKS[1][0] ;
+message[10] = 1;//PYRO_CHECKS[1][1] ;
+message[11] = 1;//PYRO_CHECKS[2][0] ;
+message[12] = 1;//PYRO_CHECKS[2][1] ;
+message[13] = 1;//PYRO_CHECKS[3][0] ;
+message[14] = 1;//PYRO_CHECKS[3][1] ;
+message[15] = 1;//PYRO_CHECKS[4][0] ;
+message[16] = 1;//PYRO_CHECKS[4][1] ;
+
+message[17] = millis()/1000;
+
+
 
 dataFile = SD.open("Volta.txt", FILE_WRITE);
 
@@ -101,9 +116,41 @@ dataFile = SD.open("Volta.txt", FILE_WRITE);
   pyroCheck(PYRO_CHECKS[0][0]); 
   Serial.println("");
 
-  delay(500);
+String stringexample = "";
 
-  
+for (int i = 0; i < 18; i++) {
+  if (i > 0) {
+    stringexample += ","; // Add a comma before each value except the first one
+  }
+  stringexample += String(message[i], 2); // Convert float to String with 2 decimal places
+}
+
+  //Serial.println(stringexample);
+  transmitLoRa(stringexample);
+
+  //Serial.println(sizeof(stringexample));
+
+  //GPS 
+
+  myGPS.checkUblox(); //See if new data is available. Process bytes as they come in.
+
+  if(nmea.isValid() == true)
+  {
+    long latitude_mdeg = nmea.getLatitude();
+    long longitude_mdeg = nmea.getLongitude();
+
+    //Serial.print("Latitude (deg): ");
+    //Serial.println(latitude_mdeg / 1000000., 6);
+    //Serial.print("Longitude (deg): ");
+    //Serial.println(longitude_mdeg / 1000000., 6);
+  }
+  else
+  {
+    Serial.print("No Fix - ");
+    Serial.print("Num. satellites: ");
+    Serial.println(nmea.getNumSatellites());
+  }
+
   if(millis() > 10000 && millis() < 10800) {
     //firePyro(0,'a');
     pyro_timer = millis();
