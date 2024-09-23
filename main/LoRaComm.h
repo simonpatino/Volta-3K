@@ -3,7 +3,7 @@
 
 void setupLoRa();
 void transmitData(float bmeVariables[], float bnoVariables[],
-                  bool pyroVariables[],float  gpsVariables[], 
+                  float pyroVariables[],long  gpsVariables[], 
                   float message[]);
 
 #endif

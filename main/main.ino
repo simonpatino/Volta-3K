@@ -7,7 +7,7 @@
 float bmeVariables[4] = {};
 float bnoVariables[3] = {};
 float pyroVariables[8] = {};
-float gpsVariables[2] = {}; 
+long gpsVariables[2] = {}; 
 float message[18] = {};
 
 void setup() {
@@ -23,7 +23,9 @@ void setup() {
 void loop() {
   readSensors(bmeVariables, bnoVariables);
   checkPyro();
-  checkGPS();
-  transmitData(bmeVariables, bnoVariables, message);
+  checkGPS(gpsVariables);
+  transmitData(bmeVariables, bnoVariables,
+               pyroVariables, gpsVariables,
+               message);
   logData(message);
 }

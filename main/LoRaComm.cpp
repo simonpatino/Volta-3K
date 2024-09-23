@@ -16,7 +16,6 @@ void transmitData(float bmeVariables[], float bnoVariables[],
                   bool pyroVariables[],float  gpsVariables[], 
                   float message[]){
 
-
     message[0] = bmeVariables[0];
     message[1] = bmeVariables[1];
     message[2] = bmeVariables[2];
@@ -36,6 +35,7 @@ void transmitData(float bmeVariables[], float bnoVariables[],
     message[16] =  gpsVariables[1];
     message[17] = millis()/1000; 
 
+    //This message[] variable is the same that use logData
 
     String data = "";
     for (int i = 0; i < 18; i++) {
