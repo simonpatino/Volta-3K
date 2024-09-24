@@ -1,8 +1,10 @@
-#include "Pyro.h"
+#include <Arduino.h>
+#include "PyroController.h"
 #include "Constants.h"
-#include "save.h"
 
-void setupPyro() {
+PyroController::PyroController() {}
+
+bool PyroController::begin() {
   for (int i = 0; i < 5; i++) {
     for (int j = 0; j < 2; j++) {
       pinMode(PYRO_CHECKS[i][j], INPUT);
@@ -10,32 +12,33 @@ void setupPyro() {
       digitalWrite(PYRO_FIRE[i][j], LOW);
     }
   }
+  return 1;
 }
 
 
-void checkPyro() {
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 2; j++) {
-            int pyroState = digitalRead(PYRO_CHECKS[i][j]);
-            Serial.print("Pyro ");
-            Serial.print(i);
-            Serial.print(j);
-            Serial.print(": ");
-            Serial.println(pyroState ? "ON" : "OFF");
-        }
-    }
-}
-
-
-void killPyros() {
+void PyroController::checkPyro() {
   for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 2; j++) {
+      int pyroState = digitalRead(PYRO_CHECKS[i][j]);
+        Serial.print("Pyro ");
+        Serial.print(i);
+        Serial.print(j);
+        Serial.print(": ");
+        Serial.println(pyroState ? "ON" : "OFF");
+      }
+  }
+}
+
+
+void PyroController::killPyros() {
+    for (int i = 0; i < 5; i++) {
     for (int j = 0; j < 2; j++) {
       digitalWrite(PYRO_FIRE[i][j], LOW);
     }
   }
 }
 
-bool firePyro(int id_num, char id_letter) {
+bool PyroController::firePyro(int id_num, char id_letter) {
   int j;
   if (id_letter == 'a' || id_letter == 'A') {
     j = 0;
@@ -49,38 +52,25 @@ bool firePyro(int id_num, char id_letter) {
   return 1;
 }
 
-void ejectEvent(int pinToEject) {
-
+void PyroController::ejectEvent(int pinToEject) {
   digitalWrite(pinToEject, HIGH);
-
   String message = "The pin" + String(pinToEject) + " was ACTIVATED";
-
   Serial.println(message);
 }
 
 //Function to check if pyro has continuity
 
 int pyroCheck(int pyroChannel) {
-
   int state = digitalRead(pyroChannel);
-
   if (state) {
-
     //String message = "The channel  " + String(pyroChannel) + " is ON";
     String message = "ON";
-
     Serial.print(message);
-
     return 1;
-
   } else {
-
-
     //String message = "The channel  " + String(pyroChannel) + " is OFF";
     String message = "OFF";
-
     Serial.print(message);
-
     return 0;
   }
 }

@@ -1,9 +1,16 @@
 #ifndef LORACOMM_H
 #define LORACOMM_H
 
-void setupLoRa();
-void transmitData(float bmeVariables[], float bnoVariables[],
-                  float pyroVariables[],long  gpsVariables[], 
-                  float message[]);
+#include <LoRa.h>
+
+class LoRaComm {
+  public:
+    LoRaComm();
+    bool begin();
+    void transmitData(float bmeVariables[], float bnoVariables[],
+                      bool pyroVariables[], long gpsVariables[], 
+                      float message[]);
+};
+
 
 #endif

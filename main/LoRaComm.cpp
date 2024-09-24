@@ -2,18 +2,22 @@
 #include <LoRa.h>
 #include "Constants.h"
 
-void setupLoRa() {
-    LoRa.setPins(LORA_NSS, LORA_RST, LORA_DI0);
-    if (!LoRa.begin(LORA_FREQ)) {
-        Serial.println("LoRa initialization failed!");
-    }
-    LoRa.setSyncWord(LORA_SYNC);
-    LoRa.setSpreadingFactor(10);
-    LoRa.setSignalBandwidth(250E3);
+LoRaComm::LoRaComm() {}
+
+bool LoRaComm::begin() {
+  LoRa.setPins(LORA_NSS, LORA_RST, LORA_DI0);
+  if (!LoRa.begin(LORA_FREQ)) {
+    Serial.println("LoRa initialization failed!");
+    return 0;
+  }
+  LoRa.setSyncWord(LORA_SYNC);
+  LoRa.setSpreadingFactor(10);
+  LoRa.setSignalBandwidth(250E3);
+  return 1;
 }
 
-void transmitData(float bmeVariables[], float bnoVariables[],
-                  bool pyroVariables[],float  gpsVariables[], 
+void LoRaComm::transmitData(float bmeVariables[], float bnoVariables[],
+                  bool pyroVariables[], long gpsVariables[], 
                   float message[]){
 
     message[0] = bmeVariables[0];

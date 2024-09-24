@@ -1,33 +1,29 @@
-#include "GPS.h"
+#include <Arduino.h>
+#include "GPSController.h"
 #include <Wire.h>
 #include "SparkFun_Ublox_Arduino_Library.h"
-#include <MicroNMEA.h>
+#include <MicroNMEA.h>  
 
-SFE_UBLOX_GPS myGPS;
 
-char nmeaBuffer[100];
-MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
+GPSController::GPSController():nmea(nmeaBuffer, sizeof(nmeaBuffer)) {}
 
-void gpsActivation() {
-
+bool GPSController::begin() {
   Wire2.begin();
-
   if (myGPS.begin(Wire2) == false) {
-    Serial.println(F("Ublox GPS not detected at default I2C address. Please check wiring. Freezing."));
-    while (1)
-      ;
+    return 0;
   }
+  return 1;
 }
 
-void SFE_UBLOX_GPS::processNMEA(char incoming)
+/* void SFE_UBLOX_GPS::processNMEA(char incoming)
 {
   //Take the incoming char from the Ublox I2C port and pass it on to the MicroNMEA lib
   //for sentence cracking
   nmea.process(incoming);
-}
+} */
 
 
-void checkGPS(double gpsVariables[]) {
+void GPSController::checkGPS() {
     myGPS.checkUblox();
     if (nmea.isValid()) {
         long latitude = nmea.getLatitude();

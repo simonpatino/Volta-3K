@@ -1,8 +1,15 @@
 #ifndef SDMANAGER_H
 #define SDMANAGER_H
+#include <SD.h>
 
-void setupSD();
-void logData(float message[]);
+
+class SDManager {
+  public:
+    File dataFile;
+    SDManager();
+    bool begin();
+    void logData(float message[]);
+};
 
 #endif
 

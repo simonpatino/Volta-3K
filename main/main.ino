@@ -1,31 +1,23 @@
-#include "SensorConfig.h"
-#include "Pyro.h"
+#include "SensorManager.h"
+#include "PyroController.h"
 #include "LoRaComm.h"
 #include "SDManager.h"
-#include "GPS.h"
+#include "GPSController.h"
 
-float bmeVariables[4] = {};
-float bnoVariables[3] = {};
-float pyroVariables[8] = {};
-long gpsVariables[2] = {}; 
+
 float message[18] = {};
+
+PyroController pyro;
+GPSController gps;
+SDManager sd;
+SensorManager sensor;
 
 void setup() {
   Serial.begin(115200);
-  
-  setupSensors();
-  setupLoRa();
-  setupPyro();
-  setupSD();
-  setupGPS();
+  sd.begin();
+  sensor.begin();
+  pyro.begin();
+  gps.begin();
 }
 
-void loop() {
-  readSensors(bmeVariables, bnoVariables);
-  checkPyro();
-  checkGPS(gpsVariables);
-  transmitData(bmeVariables, bnoVariables,
-               pyroVariables, gpsVariables,
-               message);
-  logData(message);
-}
+void loop() {}
