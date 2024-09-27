@@ -51,4 +51,49 @@
 #define PYRO4_B 34
 #define P_CHK5A 33
 
+
+#define IMU_ADDRESS 0x28
+
+enum ODR_MODES {
+  HIGH_RATE = 2,
+  MID_RATE = 1,
+  LOW_RATE = 0
+};
+
+enum ACC_RANGES {
+  ACC_RNG_2G = (0X00),
+  ACC_RNG_4G = (0X01),
+  ACC_RNG_8G = (0X02),
+  ACC_RNG_16G = (0X03)
+};
+
+enum ACC_BW {
+  ACC_BW_7_81HZ  =  (0x00),
+  ACC_BW_15_63HZ =  (0x01),
+  ACC_BW_31_25HZ =  (0x02),
+  ACC_BW_62_5HZ  =  (0X03),
+  ACC_BW_125HZ   =  (0X04),
+  ACC_BW_250HZ   =  (0X05),
+  ACC_BW_500HZ   =  (0X06),
+  ACC_BW_1000HZ  =  (0X07)
+};
+
+enum ACC_PW {
+  ACC_NORMAL      =  (0X00),
+  ACC_SUSPEND     =  (0X01),
+  ACC_LOWPOWER_1  =  (0X02),
+  ACC_STANDBY     =  (0X03),
+  ACC_LOWPOWER_2  =  (0X04),
+  ACC_DEEPSUSPEND =  (0X05)
+};
+
+enum STAGES {
+  IDLE      =  (0X00),
+  BOOSTING     =  (0X01),
+  COASTING  =  (0X02),
+  DROGUE_DESCENT     =  (0X03),
+  MAIN_DESCENT  =  (0X04),
+  TOUCH_DOWN =  (0X05)
+};
+
 #endif

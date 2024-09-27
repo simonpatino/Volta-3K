@@ -1,12 +1,11 @@
-#ifndef SDMANAGER_H
-#define SDMANAGER_H
+#ifndef FLASHMANAGER_H
+#define FLASHMANAGER_H
 #include <SD.h>
 
-
-class SDManager {
+class FlashManager {
   public:
     File dataFile;
-    SDManager();
+    FlashManager();
     bool begin();
     void logData(float message[]);
 };
