@@ -15,7 +15,7 @@ class SensorManager {
     void setBaroMode(ODR_MODES mode);
     void setIMUMode(ODR_MODES mode);
     const float SEALEVELPRESSURE_HPA = 1013.25;
-    float temp, prss, alt, humty;
+    float temp, prss, alt, deltaAlt, humty;
     float euler_angles[3];
     float acc_raw[3];
     float gyro_raw[3];

@@ -91,9 +91,9 @@ enum STAGES {
   IDLE      =  (0X00),
   BOOSTING     =  (0X01),
   COASTING  =  (0X02),
-  DROGUE_DESCENT     =  (0X03),
-  MAIN_DESCENT  =  (0X04),
-  TOUCH_DOWN =  (0X05)
+  DROGUEDESCENT     =  (0X03),
+  MAINDESCENT  =  (0X04),
+  TOUCHDOWN =  (0X05)
 };
 
 #endif

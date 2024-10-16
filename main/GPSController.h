@@ -9,10 +9,8 @@ class GPSController {
   public:
     GPSController();
     bool begin();
-    void checkGPS();
+    bool checkGPS();
     SFE_UBLOX_GPS myGPS;
-    char nmeaBuffer[100];
-    MicroNMEA nmea;
     long gpsVariables[2] = {}; 
 };
 

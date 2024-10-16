@@ -23,18 +23,21 @@ bool SensorManager::begin() {
 }
 
 void SensorManager::readSensors() {
-    temp = baro.readTemperature();       // °C
-    prss = baro.readPressure() / 100.0F; // hPa
-    alt = baro.readAltitude(SEALEVELPRESSURE_HPA); // m
-    humty = baro.readHumidity();          // %
+  static float prevAtl;
+  temp = baro.readTemperature();       // °C
+  prss = baro.readPressure() / 100.0F; // hPa
+  alt = baro.readAltitude(SEALEVELPRESSURE_HPA); // m
+  deltaAlt = alt - prevAtl;
+  humty = baro.readHumidity();          // %
+  prevAtl = alt;
 
-    imu::Vector<3> euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
-    euler_angles[0] = euler.x(); // ° (Euler angles)
-    euler_angles[1] = euler.y(); // °
-    euler_angles[2] = euler.z(); // °
-    sensors_event_t accelerometerData;
-    imu.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
-    acc_raw[2] = accelerometerData.acceleration.z/9.8;
+  imu::Vector<3> euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
+  euler_angles[0] = euler.x(); // ° (Euler angles)
+  euler_angles[1] = euler.y(); // °
+  euler_angles[2] = euler.z(); // °
+  sensors_event_t accelerometerData;
+  imu.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
+  acc_raw[2] = accelerometerData.acceleration.z/9.8;
 }
 
 void SensorManager::setBaroMode(ODR_MODES mode) {
@@ -77,5 +80,4 @@ void SensorManager::setIMUMode(ODR_MODES mode) {
   Wire2.write(0x07);
   Wire2.write(0x00);
   Wire2.endTransmission();
-
 }
