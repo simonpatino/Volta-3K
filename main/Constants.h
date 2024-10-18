@@ -88,12 +88,13 @@ enum ACC_PW {
 };
 
 enum STAGES {
-  IDLE      =  (0X00),
-  BOOSTING     =  (0X01),
-  COASTING  =  (0X02),
-  DROGUEDESCENT     =  (0X03),
-  MAINDESCENT  =  (0X04),
-  TOUCHDOWN =  (0X05)
+  STARTUP = (0x00)
+  IDLE      =  (0X01),
+  BOOSTING     =  (0X02),
+  COASTING  =  (0X03),
+  DROGUEDESCENT     =  (0X04),
+  MAINDESCENT  =  (0X05),
+  TOUCHDOWN =  (0X06)
 };
 
 #endif

@@ -11,7 +11,7 @@ class SensorManager {
     bool begin();
     Adafruit_BNO055 imu = Adafruit_BNO055(-1, 0x28, &Wire2);
     Adafruit_BME280 baro;  // I2C
-    void readSensors();
+    void sample();
     void setBaroMode(ODR_MODES mode);
     void setIMUMode(ODR_MODES mode);
     const float SEALEVELPRESSURE_HPA = 1013.25;

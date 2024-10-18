@@ -22,7 +22,7 @@ bool SensorManager::begin() {
   return 1;
 }
 
-void SensorManager::readSensors() {
+void SensorManager::sample() {
   static float prevAtl;
   temp = baro.readTemperature();       // °C
   prss = baro.readPressure() / 100.0F; // hPa

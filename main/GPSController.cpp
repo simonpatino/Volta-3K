@@ -40,4 +40,7 @@ bool GPSController::checkGPS() {
         Serial.println(nmea.getNumSatellites());
         return 0;
     }
+    
+int GPSController::getFixes() {
+  return nmea.getNumSatellites();
 }
