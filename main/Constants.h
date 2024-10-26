@@ -51,13 +51,24 @@
 #define PYRO4_B 34
 #define P_CHK5A 33
 
+const int POWDERCHAMBERTEMP[] = {26, 27, 28, 22};
 
 #define IMU_ADDRESS 0x28
 
+/*
+  * God knows what i meant when i called them "ODR"
+*/
 enum ODR_MODES {
-  HIGH_RATE = 2,
+  LOW_RATE = 0,
   MID_RATE = 1,
-  LOW_RATE = 0
+  HIGH_RATE = 2,
+
+  /* IMU ONLY PREDEFINED FUSION MODES
+      * Both work at 100Hz
+  */
+  IMUONLY_IMU = 0x03, //The datasheed called it "IMU mode", don't blame me   | MAX ACC = +/- 4g
+  IMUONLY_NDOF = 0x04, //Does anyone know what the fuck does NDOF stand for? | MAX ACC = +/- 4g
+
 };
 
 enum ACC_RANGES {
@@ -88,7 +99,7 @@ enum ACC_PW {
 };
 
 enum STAGES {
-  STARTUP = (0x00)
+  STARTUP = (0x00),
   IDLE      =  (0X01),
   BOOSTING     =  (0X02),
   COASTING  =  (0X03),

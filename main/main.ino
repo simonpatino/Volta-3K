@@ -4,13 +4,17 @@
 #include "FlashManager.h"
 #include "GPSController.h"
 
-float message[18] = {};
+unsigned const int messCoreLenght = 10;
+float messageCore[messCoreLenght] = {};
 
 //Global variables that might be useful here and there.
-float maxAlt;
 bool static init = 0; //This varible just helps init-type functions to be executed just once, every termination function must reset it back to 0
-int sampleRate = 5; //Fixed sampling rate for the whole system (in Hz)
+int sampleRate = 2; //Fixed sampling rate for the whole system (in Hz)
 long lastTime = millis(); //Current time since boot up. Manages the dynamic delay
+long cycleNumber = 0; //Cycle number counter. Works as an ID for each data package
+bool continuityPyros[10] = {}; 
+float powderChambTemp[4] = {}; 
+float kalmanState[2] = {0.0, 0.0}; 
 
 PyroController pyro;
 GPSController gps;
@@ -22,16 +26,21 @@ STAGES currentStage;
 
 void setup() {
   Serial.begin(115200);
+  pinMode(R, OUTPUT);
+  digitalWrite(R, HIGH);
   currentStage = STARTUP;
 }
 
 void loop() {
   dynamicDelay();
+  pyro.checkContinuityAll(continuityPyros);
+  pyro.readBayTempAll(powderChambTemp);
   switch (currentStage) {
   case STARTUP:
     initStartup();
     sens.sample();
     parseData();
+    printMessage();
     startupTermination();
     break;
   case IDLE:
@@ -42,6 +51,7 @@ void loop() {
 
     idleTermination();
     break;
+    
   
   case BOOSTING:
     /*
@@ -83,14 +93,27 @@ void loop() {
   }
 }
 
-void initIdle() {
-  //Set sensor characteristics for IDLEING
-  if(init) {
-    sens.setBaroMode(LOW_RATE);
-    sens.setIMUMode(HIGH_RATE);
-    sens.imu.setMode(OPERATION_MODE_ACCGYRO);
-    init = false;
+void printMessage() {
+
+  Serial.print("Message: ");
+  for(int unsigned i = 0; i <= messCoreLenght + 1; i++) {
+    Serial.print(messageCore[i], 1);
+    Serial.print(", ");
+  } 
+  for(int unsigned i = 0; i < 10; i++) {
+    Serial.print(continuityPyros[i]);
+    Serial.print(", ");
   }
+  for(int unsigned i = 0; i < 4; i++) {
+    Serial.print(powderChambTemp[i],0);
+    Serial.print(", ");
+  }
+  for(int unsigned i = 0; i < 2; i++) {
+    Serial.print(kalmanState[i],0);
+    Serial.print(", ");
+  }
+  Serial.print(digitalRead(21));
+  Serial.println("");
 }
 
 void initIdle() {
@@ -98,31 +121,50 @@ void initIdle() {
   if(init) {
     sens.setBaroMode(LOW_RATE);
     sens.setIMUMode(HIGH_RATE);
-    sens.imu.setMode(OPERATION_MODE_ACCGYRO);
     init = false;
   }
+}
+
+void messageAppend(float info, bool reset = false) {
+  static int messCounter = 0;
+  if(reset) messCounter = 0;
+  messageCore[messCounter] = info;
+  messCounter++;
 }
 
 void parseData() {
-
+  for (unsigned int i = 0; i <= messCoreLenght; i++) {
+    messageCore[i] = 0.0;
+  }
+  messageAppend(cycleNumber, true);
+  messageAppend(millis()/1000.0);
+  messageAppend(sens.accData[0]);
+  messageAppend(sens.accData[1]);
+  messageAppend(sens.accData[2]);
+  messageAppend(sens.alt);
+  messageAppend(sens.prss);
+  messageAppend(sens.euler[0]);
+  messageAppend(sens.euler[1]);
+  messageAppend(sens.euler[2]);
+  messageAppend(sens.maxAlt);   
+  messageAppend(sens.refPressure);
 }
-
 
 /*  Init boards neccesary systems
     It only works the first time it is called ever so sensors are not accidently rebooted
     This code would usually go in the setup function but as it is part of a rocket-stage is better to create a function for it
 */
 void initStartup() {
-  static startupinitializer = true //Variable that protects this function from beeing called more than once
+  static bool startupinitializer = true; //Variable that protects this function from beeing called more than once
   if(startupinitializer) {
     Serial.println("Starting all systems...");
-    if(!gps.begin()) {
+  if(!gps.begin()) {
       while(1) {
         Serial.println("GPS NOT FOUND");  
         delay(1000);
       }
     }
-    if(!lora.begin()) {
+  if(!lora.begin()) {
       while(1) {
         Serial.println("LORA NOT CONNECTED");
         delay(1000);
@@ -143,6 +185,14 @@ void initStartup() {
     pyro.begin();
     Serial.println("All systems initialized");
     startupinitializer = false;
+    
+    /*
+      Setup sensor modes:
+      Low barometer for the 0 height reference pressure
+      NDOF because why not
+    */
+    sens.setBaroMode(LOW_RATE);
+    sens.setIMUMode(IMUONLY_NDOF);
   }
 }
 
@@ -150,10 +200,11 @@ void initStartup() {
   Delays the running of the code without actually stopping it
 */
 void dynamicDelay() {
-  while(millis() - lastTime < (1000 / sampleRate)) {
-    delay(1)
+  while(int(millis() - lastTime) < (1000 / sampleRate)) {
+    delay(1);
   }
   lastTime = millis();
+  cycleNumber++;
 }
 
 void startupTermination() {
@@ -163,7 +214,11 @@ void startupTermination() {
     * IMU calibration is complete
     * 500 pressure samples where taken    
   */
-  if(gps.getFixes()) {}
+
+  if(gps.getFixes() > 5) {
+    sens.setReferencePressure();
+    currentStage = IDLE; //Move to the next stage (Idle, naturally)
+  }
 }
 
 void idleTermination() {
@@ -171,13 +226,12 @@ void idleTermination() {
     * Acceleration along the z axis is higer than 5g
     TODO: DO NOT USE z acceleration but net acceleration
   */
-  if(sensor.acc_raw[2] > 5.0) {
+  /*   if(sens.acc_raw[2] > 5.0) {
     //BOOSTING characteristics
-    sensor.setBaroMode(MID_RATE);
-    sensor.setIMUMode(MID_RATE);
-    sensor.imu.setMode(OPERATION_MODE_ACCGYRO);
+    sens.setBaroMode(MID_RATE);
+    sens.setIMUMode(MID_RATE);
     currentStage = BOOSTING;
-  }
+  } */
 }
 
 void boostTermination() {
@@ -185,12 +239,12 @@ void boostTermination() {
     * Acceleration along the z axis is lower than 1.2g
     TODO: DO NOT USE z acceleration but net acceleration
   */
-  if(sensor.acc_raw[2] < 1.2) {
+  /*   if(sens.acc_raw[2] < 1.2) {
     //COASTING characteristics
-    sensor.setBaroMode(MID_RATE);
-    sensor.imu.setMode(OPERATION_MODE_NDOF);
+    sens.setBaroMode(MID_RATE);
+    sens.setIMUMode(IMUONLY_IMU, isFusion = true);
     currentStage = BOOSTING;
-  }
+  } */
 }
 
 void coastTermination() {
@@ -202,20 +256,19 @@ void coastTermination() {
   /*Check for stage finalization condition:
     * The distance from the apogee is more than 3 meters for 5 iterations in a row  
   */
-  if((maxAlt - sensor.alt) > 3) counter++;
+  if((sens.maxAlt - sens.alt) > 3) counter++;
   else counter=0;
   if(counter > 5) {
     //Drogue descent characteristics
-    sensor.setBaroMode(MID_RATE);
-    sensor.setIMUMode(MID_RATE);
-    sensor.imu.setMode(OPERATION_MODE_ACCGYRO);
+    sens.setBaroMode(MID_RATE);
+    sens.setIMUMode(MID_RATE);
     //Fire main ignition pyrochannels
     //pyro.firePyro(1,'a');
   }
 }
 
 void drogueTermination() {
-    /*
+  /*
     Wanted actions hier
   */
 
@@ -223,15 +276,15 @@ void drogueTermination() {
   /*Check for stage finalization condition:
     * The altitude is lower than 500mts
   */
-  if(sensor.alt < 500) {
+  if(sens.alt < 500) {
     //Main descent characteristics
-    sensor.setBaroMode(HIGH_RATE);
-    sensor.setIMUMode(HIGH_RATE);
-    sensor.imu.setMode(OPERATION_MODE_AMG);
+    sens.setBaroMode(HIGH_RATE);
+    sens.setIMUMode(HIGH_RATE);
     //Fire main ignition pyrochannels
     //pyro.firePyro(3,'a');
   }
 }
+
 void descentTermination() {
   static long timer = 0;
   static bool enDelay = false;
@@ -243,20 +296,19 @@ void descentTermination() {
     * Altitude is lower than 10 mts and 10 seconds have passed since then
     * TODO: change condition for z-axis velocity is lower than 1 m/s for 25 iterations in a row
   */
-  if(deltaAlt < 10) {
+  if(sens.deltaAlt < 10) {
     timer = millis();
     enDelay = true;
   }
 
   if(millis() > 5) {
     //Main descent characteristics
-    sensor.setBaroMode(HIGH_RATE);
-    sensor.setIMUMode(HIGH_RATE);
-    sensor.imu.setMode(OPERATION_MODE_AMG);
+    sens.setBaroMode(HIGH_RATE);
+    sens.setIMUMode(HIGH_RATE);
+    sens.imu.setMode(OPERATION_MODE_AMG);
     //Fire main ignition pyrochannels
     //pyro.firePyro(3,'a');
   }
-  sensor.setBaroMode(LOW_RATE);
-  sensor.imu.setMode(OPERATION_MODE_IMUPLUS);
-
+  sens.setBaroMode(LOW_RATE);
+  sens.imu.setMode(OPERATION_MODE_IMUPLUS);
 }

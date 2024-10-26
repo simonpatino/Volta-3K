@@ -10,6 +10,7 @@ class GPSController {
     GPSController();
     bool begin();
     bool checkGPS();
+    int getFixes();
     SFE_UBLOX_GPS myGPS;
     long gpsVariables[2] = {}; 
 };

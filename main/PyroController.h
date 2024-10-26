@@ -6,9 +6,11 @@ class PyroController {
   public:
     PyroController();
     bool begin();
-    void checkPyro();  //Check All Pins
+    void checkContinuityAll(bool continuityPyros[]);  //Check All Pins
+    void readBayTempAll(float dataArray[]);
+    bool checkContinuitySingle(int number, char letter);
     void killPyros();
-    bool firePyro(int id_num, char id_letter);
+    void firePyro(int number, char letter);
     void ejectEvent(int pinToEject);
     void pyroCheck(int pyroChannel); //Check an Individual Pin
   private: 

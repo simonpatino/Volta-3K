@@ -15,29 +15,41 @@ bool SensorManager::begin() {
     Serial.println("barof");
     return 0;
   }
+  setBaroMode(MID_RATE);
   if (!imu.begin()) {
     Serial.println("imuf");
     return 0;
   }
   return 1;
+  setIMUMode(MID_RATE);
 }
 
 void SensorManager::sample() {
   static float prevAtl;
   temp = baro.readTemperature();       // °C
   prss = baro.readPressure() / 100.0F; // hPa
-  alt = baro.readAltitude(SEALEVELPRESSURE_HPA); // m
+  alt = baro.readAltitude(refPressure); // hPa
   deltaAlt = alt - prevAtl;
   humty = baro.readHumidity();          // %
   prevAtl = alt;
+  if(alt > maxAlt) maxAlt = alt;
+  euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
+  accData = imu.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+  angVelData = imu.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+  linAccData = imu.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+  //magData = mu.getVector(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
+  //gravityData = imu.getVector(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
+  /*
+    The lib should be aware of the fact it is working in fusion mode or not to calculate angles an everything else by itself
+  */
+}
 
-  imu::Vector<3> euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
-  euler_angles[0] = euler.x(); // ° (Euler angles)
-  euler_angles[1] = euler.y(); // °
-  euler_angles[2] = euler.z(); // °
-  sensors_event_t accelerometerData;
-  imu.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
-  acc_raw[2] = accelerometerData.acceleration.z/9.8;
+void SensorManager::setReferencePressure() {
+  refPressure = 0;
+  for(int i = 0; i < 50; i++) {
+    //Update the pressure with the mean equation
+    refPressure = (i * refPressure + (baro.readPressure() / 100.0F)) /(i+1);
+  }
 }
 
 void SensorManager::setBaroMode(ODR_MODES mode) {
@@ -53,10 +65,16 @@ void SensorManager::setBaroMode(ODR_MODES mode) {
   }
 }
 
-void SensorManager::setIMUMode(ODR_MODES mode) {
+bool SensorManager::setIMUMode(ODR_MODES mode) {
+  if(mode == IMUONLY_IMU) {
+    imu.setMode(OPERATION_MODE_IMUPLUS);
+    return 1;
+  } else if(mode == IMUONLY_NDOF) {
+    imu.setMode(OPERATION_MODE_NDOF);
+    return 1;
+  } 
   //Change to Config Mode:
-  imu.setMode(OPERATION_MODE_CONFIG);
-
+  imu.setMode(OPERATION_MODE_CONFIG); //This mode let's us set the configuration we want
   int result = 0;
 
   Wire2.beginTransmission(IMU_ADDRESS);
@@ -64,20 +82,28 @@ void SensorManager::setIMUMode(ODR_MODES mode) {
   Wire2.write(0x01);
   Wire2.endTransmission();
 
-  Wire2.beginTransmission(IMU_ADDRESS);
-  Wire2.write(0x08);
   if(mode == LOW_RATE) {
     result = (ACC_NORMAL << 5) | (ACC_BW_15_63HZ << 2) | ACC_RNG_2G;
   } else if(mode == MID_RATE) {
     result = (ACC_NORMAL << 5) | (ACC_BW_62_5HZ << 2) | ACC_RNG_8G;
   } else if(mode == HIGH_RATE) {
     result = (ACC_NORMAL << 5) | (ACC_BW_500HZ << 2) | ACC_RNG_16G;
-  }
+  } else return 0;
+
+  Serial.println(result);
+
+  Wire2.beginTransmission(IMU_ADDRESS);
+  Wire2.write(0x08);
   Wire2.write(result);
   Wire2.endTransmission();
 
+  //Return to page 0:
   Wire2.beginTransmission(IMU_ADDRESS);
   Wire2.write(0x07);
   Wire2.write(0x00);
   Wire2.endTransmission();
+
+  imu.setMode(OPERATION_MODE_ACCGYRO); //Only activate acc and gyro, if mag is needed change this
+
+  return 1;
 }

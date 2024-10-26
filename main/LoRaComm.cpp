@@ -16,38 +16,23 @@ bool LoRaComm::begin() {
   return 1;
 }
 
-void LoRaComm::transmitData(float bmeVariables[], float bnoVariables[],
-                  bool pyroVariables[], long gpsVariables[], 
-                  float message[]){
+/*
+  * dataID makes the difference between a general data packet or special data packet
+    Special data may include: information that is relevant for a short period of time such as bay temperature, 
+    a constant value such as the reference pressure
+*/
 
-    message[0] = bmeVariables[0];
-    message[1] = bmeVariables[1];
-    message[2] = bmeVariables[2];
-    message[3] = bmeVariables[3];
-    message[4] = bnoVariables[0];
-    message[5] = bnoVariables[1];
-    message[6] = bnoVariables[2];
-    message[7] = pyroVariables[0];
-    message[8] = pyroVariables[1];
-    message[9] = pyroVariables[3];
-    message[10] = pyroVariables[4];
-    message[11] = pyroVariables[5];
-    message[12] = pyroVariables[6];
-    message[13] = pyroVariables[7];
-    message[14] = pyroVariables[8];
-    message[15] =  gpsVariables[0];
-    message[16] =  gpsVariables[1];
-    message[17] = millis()/1000; 
-
-    //This message[] variable is the same that use logData
-
-    String data = "";
+void LoRaComm::transmitData(float dataList[], int dataID) {
+    
+    String dataString = "";
     for (int i = 0; i < 18; i++) {
-        data += String(message[i], 2) + ",";
+        dataString += String(dataList[i], 2) + ",";
     }
-    data += String(millis() / 1000);
+    dataString += String(millis() / 1000);
 
     LoRa.beginPacket();
-    LoRa.print(data);
+    LoRa.print(rocketAddress);
+    LoRa.print(dataID);
+    LoRa.print(dataString);
     LoRa.endPacket();
 }

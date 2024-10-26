@@ -7,9 +7,9 @@ class LoRaComm {
   public:
     LoRaComm();
     bool begin();
-    void transmitData(float bmeVariables[], float bnoVariables[],
-                      bool pyroVariables[], long gpsVariables[], 
-                      float message[]);
+    void transmitData(float dataList[], int dataID);
+  private:
+    byte rocketAddress = 0b01010101;
 };
 
 
