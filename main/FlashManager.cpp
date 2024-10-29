@@ -2,6 +2,7 @@
 #include "FlashManager.h"
 #include <SD.h>
 #include "Constants.h"
+#include "SPI.h"
 
 FlashManager::FlashManager() {
 }

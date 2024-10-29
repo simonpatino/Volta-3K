@@ -11,8 +11,9 @@ bool PyroController::begin() {
   for (int i = 0; i < 5; i++) {
     for (int j = 0; j < 2; j++) {
       pinMode(PYRO_CHECKS[i][j], INPUT);
-      pinMode(PYRO_FIRE[i][j], OUTPUT);
-      digitalWrite(PYRO_FIRE[i][j], LOW);
+      int pin = PYRO_FIRE_PINS_MATRIX[i][j];
+      pinMode(pin, OUTPUT);
+      digitalWrite(pin, LOW);
     }
   }
   return 1;
@@ -21,7 +22,7 @@ bool PyroController::begin() {
 void PyroController::killPyros() {
   for (int i = 0; i < 5; i++) {
     for (int j = 0; j < 2; j++) {
-      digitalWrite(PYRO_FIRE[i][j], LOW);
+      digitalWrite(PYRO_FIRE_PINS_MATRIX[i][j], LOW);
     }
   }
 }
@@ -29,15 +30,24 @@ void PyroController::killPyros() {
 /*
   Fires the pyro when the ID (e.g 1A or 3B is inputed). An easier nomenclature is possible for sure
   but it's to late for that
+  * selfContained makes this function both fire and kill the pyro with a constant delay
 */
-void PyroController::firePyro(int number, char letter) { 
-  int j;
+bool PyroController::firePyro(int number, char letter, bool selfContained) { 
+  int j = 0;
   if (letter == 'a' || letter == 'A') {
     j = 0;
   } else if(letter == 'b' || letter == 'b'){
     j = 1;
+  } else {
+    return 0;
   }
-  digitalWrite(PYRO_FIRE[number - 1][j], LOW);
+  int pyroPin = PYRO_FIRE_PINS_MATRIX[number - 1][j];
+  digitalWrite(pyroPin, HIGH);
+  if(selfContained) {
+    delay(fireDelay);
+    digitalWrite(pyroPin, LOW);
+  }
+  return 1;
 }
 
 void PyroController::checkContinuityAll(bool continuityPyros[]) {
@@ -49,13 +59,13 @@ void PyroController::checkContinuityAll(bool continuityPyros[]) {
 }
 
 bool PyroController::checkContinuitySingle(int number, char letter) { 
-  int j;
+  int j = 0;
   if (letter == 'a' || letter == 'A') {
     j = 0;
   } else if(letter == 'b' || letter == 'b'){
     j = 1;
-  }
-  return digitalRead(PYRO_FIRE[number - 1][j]);
+  } else return 0;
+  return digitalRead(PYRO_CHECKS[number - 1][j]);
 }
 
 void PyroController::readBayTempAll(float powderChambTemp[]) {

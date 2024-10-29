@@ -6,9 +6,9 @@ File myFile;
 
 #define CS_FLASH 44
 void setup() {
-  SPI.setMOSI(43);
-  SPI.setMISO(42);
-  SPI.setSCK(45); 
+  SPI2.setMOSI(43);
+  SPI2.setMISO(42);
+  SPI2.setSCK(45); 
   // Open serial communications and wait for port to open:
   Serial.begin(9600);
   while (!Serial) {

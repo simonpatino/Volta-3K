@@ -32,7 +32,9 @@ void LoRaComm::transmitData(float dataList[], int dataID) {
 
     LoRa.beginPacket();
     LoRa.print(rocketAddress);
+    LoRa.print(", ");
     LoRa.print(dataID);
+    LoRa.print(", ");
     LoRa.print(dataString);
     LoRa.endPacket();
 }

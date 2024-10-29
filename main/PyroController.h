@@ -10,11 +10,12 @@ class PyroController {
     void readBayTempAll(float dataArray[]);
     bool checkContinuitySingle(int number, char letter);
     void killPyros();
-    void firePyro(int number, char letter);
+    bool firePyro(int number, char letter, bool selfContained = true);
     void ejectEvent(int pinToEject);
     void pyroCheck(int pyroChannel); //Check an Individual Pin
   private: 
-    const int PYRO_FIRE[5][2] = {
+    int fireDelay = 250; //ms, time needed for a ematch to turn on
+    const int PYRO_FIRE_PINS_MATRIX[5][2] = {
       { PYRO1_A, PYRO1_B },
       { PYRO2_A, PYRO2_B },
       { PYRO3_A, PYRO3_B },
