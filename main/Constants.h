@@ -25,9 +25,11 @@
 #define AOUT1 26
 #define BOUT1 27
 #define INT_LORA 29
-#define PYRO5_A 30
-#define P_CHK5B 31
-#define PYRO5_B 32
+#define FLASH_SPI_MOSI 11
+#define FLASH_SPI_MISO 12
+#define FLASH_SPI_SCK 13
+#define CS_SD BUILTIN_SDCARD
+
 
 //Right Side
 #define BOUT2 23
@@ -50,6 +52,9 @@
 #define P_CHK4B 35
 #define PYRO4_B 34
 #define P_CHK5A 33
+#define PYRO5_A 30
+#define P_CHK5B 31
+#define PYRO5_B 32
 
 const int POWDERCHAMBERTEMP[] = {26, 27, 28, 22};
 

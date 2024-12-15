@@ -23,18 +23,16 @@ bool LoRaComm::begin() {
 */
 
 void LoRaComm::transmitData(float dataList[], int dataID) {
-    
-    String dataString = "";
-    for (int i = 0; i < 18; i++) {
-        dataString += String(dataList[i], 2) + ",";
-    }
-    dataString += String(millis() / 1000);
-
-    LoRa.beginPacket();
-    LoRa.print(rocketAddress);
-    LoRa.print(", ");
-    LoRa.print(dataID);
-    LoRa.print(", ");
-    LoRa.print(dataString);
-    LoRa.endPacket();
+  String dataString = "";
+  for (int i = 0; i < 18; i++) {
+      dataString += String(dataList[i], 2) + ",";
+  }
+  dataString += String(millis() / 1000);
+  LoRa.beginPacket();
+  LoRa.print(rocketAddress);
+  LoRa.print(", ");
+  LoRa.print(dataID);
+  LoRa.print(", ");
+  LoRa.print(dataString);
+  LoRa.endPacket();
 }

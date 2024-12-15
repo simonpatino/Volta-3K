@@ -19,6 +19,9 @@ bool PyroController::begin() {
   return 1;
 }
 
+/*
+  Turns off all pyros
+*/
 void PyroController::killPyros() {
   for (int i = 0; i < 5; i++) {
     for (int j = 0; j < 2; j++) {

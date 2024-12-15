@@ -1,25 +1,25 @@
 #include <Arduino.h>
-#include "FlashManager.h"
+#include "MemoryManager.h"
 #include <SD.h>
 #include "Constants.h"
 #include "SPI.h"
 
-FlashManager::FlashManager() {
+
+
+MemoryManager::MemoryManager() {
 }
 
-bool FlashManager::begin() {
-  SPI.setMOSI(11);
-  SPI.setMISO(12);
-  SPI.setSCK(13); 
-  
-  if (!SD.begin(CS_FLASH)) {
-    return 0;
-  } else {
-    return 1;
+bool MemoryManager::begin(char type, int csPin) {
+  if(type == 'f') {
+    SPI.setMOSI(11);
+    SPI.setMISO(12);
+    SPI.setSCK(13); 
   }
+  
+  return SD.begin(csPin);
 }
 
-void FlashManager::logData(float message[]) {
+void MemoryManager::logData(float message[]) {
  dataFile = SD.open("Volta.txt", FILE_WRITE);
     if (dataFile) {
         for (int i = 0; i < 18; i++) {
@@ -31,4 +31,8 @@ void FlashManager::logData(float message[]) {
     } else {
         Serial.println("Error opening Volta.txt");
     }
+}
+
+void MemoryManager::pullData() {
+
 }

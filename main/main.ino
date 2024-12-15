@@ -13,8 +13,9 @@
 #include "SensorManager.h"
 #include "PyroController.h"
 #include "LoRaComm.h"
-#include "FlashManager.h"
+#include "MemoryManager.h"
 #include "GPSController.h"
+#include <SD.h>
 
 const int messCoreLenght = 10;
 float messageCore[messCoreLenght] = {};
@@ -26,10 +27,13 @@ long cycleNumber = 0;      //Cycle number counter. Works as an ID for each data 
 bool continuityPyros[10] = {};
 float powderChambTemp[4] = {};
 float kalmanState[2] = { 0.0, 0.0 };  //Position and velocity state
+bool IS_SIMULATION = true; //This variable allows for software on a loop integration
+
 
 PyroController pyro;
 GPSController gps;
-FlashManager flash;
+MemoryManager flash;
+MemoryManager sd;
 SensorManager sens;
 LoRaComm lora;
 
@@ -37,8 +41,8 @@ STAGES currentStage;
 
 void setup() {
   Serial.begin(115200);
-  pinMode(R, OUTPUT);
-  digitalWrite(R, LOW);
+  pinMode(G, OUTPUT);
+  digitalWrite(G, HIGH);
   currentStage = STARTUP;
 }
 
@@ -53,6 +57,7 @@ void loop() {
       parseData();
       lora.transmitData(messageCore, 0x00);
       serialPrintMessage();
+      sd.logData(messageCore);
       //startupTermination();
       break;
     case IDLE:
@@ -145,6 +150,7 @@ void serialPrintMessage() {
   Serial.println("");
 }
 
+
 void messageAppend(float info, bool reset = false) {
   /* 
     Enables the parsing algorithm to be easier to change the other way easier 
@@ -174,7 +180,7 @@ void parseData() {
   messageAppend(sens.euler[1]);
   messageAppend(sens.euler[2]);
   messageAppend(sens.maxAlt);
-  messageAppend(sens.refPressure);
+  //messageAppend(sens.refPressure);
 }
 
 void dynamicDelay() {
@@ -221,9 +227,15 @@ void startUpInit() {
         delay(1000);
       }
     }
-    if (!flash.begin()) {
+    if (!flash.begin('f', CS_FLASH)) {
       while (1) {
         Serial.println("FLASH NOT FOUND");
+        delay(1000);
+      }
+    }
+    if (!sd.begin('s', CS_SD)) {
+      while (1) {
+        Serial.println("COULDN'T REACH SD CARD");
         delay(1000);
       }
     }
