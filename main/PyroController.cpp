@@ -54,9 +54,11 @@ bool PyroController::firePyro(int number, char letter, bool selfContained) {
 }
 
 void PyroController::checkContinuityAll(bool continuityPyros[]) {
+  int k = 0;
   for (int i = 0; i < 5; i++) {
       for (int j = 0; j < 2; j++) {
-      continuityPyros[i+j] = digitalRead(PYRO_CHECKS[i][j]);
+      continuityPyros[k] = digitalRead(PYRO_CHECKS[i][j]);
+      k++;
     }
   }
 }

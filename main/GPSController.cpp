@@ -23,23 +23,25 @@ void SFE_UBLOX_GPS::processNMEA(char incoming)
 }
 
 
-bool GPSController::checkGPS() {
+bool GPSController::updateGPS() {
     myGPS.checkUblox();
     if (nmea.isValid()) {
-        long latitude = nmea.getLatitude();
-        long longitude = nmea.getLongitude();
-        gpsVariables[0] = latitude;
-        gpsVariables[1] = longitude;
-        Serial.print("Latitude: ");
-        Serial.println(latitude / 1000000.0, 6);
-        Serial.print("Longitude: ");
-        Serial.println(longitude / 1000000.0, 6);
-        return 1;
+      latitude = nmea.getLatitude() / 1000000.0;
+      longitude = nmea.getLongitude() / 1000000.0;
+      return 1;
     } else {
-        Serial.print("No Fix, Num satellites: ");
-        Serial.println(nmea.getNumSatellites());
-        return 0;
+      Serial.print("No Fix, Num satellites: ");
+      Serial.println(nmea.getNumSatellites());
+      return 0;
     }
+}
+
+float GPSController::getLatitude() {
+  return latitude;
+}
+
+float GPSController::getLongitude() {
+  return longitude;
 }
 int GPSController::getFixes() {
   return nmea.getNumSatellites();

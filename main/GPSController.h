@@ -9,10 +9,13 @@ class GPSController {
   public:
     GPSController();
     bool begin();
-    bool checkGPS();
+    bool updateGPS();
     int getFixes();
+    float getLatitude();
+    float getLongitude();
     SFE_UBLOX_GPS myGPS;
-    long gpsVariables[2] = {}; 
+  private:
+    float latitude, longitude;
 };
 
 #endif

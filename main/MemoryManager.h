@@ -7,7 +7,7 @@ class MemoryManager {
     File dataFile;
     MemoryManager();
     bool begin(char type, int csPin);
-    void logData(float message[]);
+    void logData(float message[], int length);
     void pullData();
   private:
     Sd2Card card;

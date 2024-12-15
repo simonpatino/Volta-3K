@@ -17,14 +17,14 @@
 #include "GPSController.h"
 #include <SD.h>
 
-const int messCoreLenght = 10;
+const int messCoreLenght = 11;
 float messageCore[messCoreLenght] = {};
 
 //Global variables that might be useful here and there.
-int sampleRate = 2;        //Fixed sampling rate for the whole system (in Hz)
+int sampleDelay = 1000;        //Fixed sampling delay for the whole system (in ms)
 long lastTime = millis();  //Current time since boot up. Manages the dynamic delay
 long cycleNumber = 0;      //Cycle number counter. Works as an ID for each data package
-bool continuityPyros[10] = {};
+bool continuityPyros[10] = {false,false,false,false,false,false,false,false,false,false};
 float powderChambTemp[4] = {};
 float kalmanState[2] = { 0.0, 0.0 };  //Position and velocity state
 bool IS_SIMULATION = true; //This variable allows for software on a loop integration
@@ -48,17 +48,18 @@ void setup() {
 
 void loop() {
   dynamicDelay();
-  pyro.checkContinuityAll(continuityPyros);
   pyro.readBayTempAll(powderChambTemp);
   switch (currentStage) {
     case STARTUP:
       startUpInit();
       sens.sample();
       parseData();
-      lora.transmitData(messageCore, 0x00);
-      serialPrintMessage();
-      sd.logData(messageCore);
-      //startupTermination();
+      gps.updateGPS();
+      checkCommand();
+      lora.transmitData(messageCore, messCoreLenght, 0x00);
+      //serialPrintMessage();
+      sd.logData(messageCore, messCoreLenght);
+      startupTermination(); 
       break;
     case IDLE:
       idleInit();
@@ -108,7 +109,7 @@ void loop() {
       mainDescentInit();
       /*
       More wanted actions here
-    */
+      */
       sens.sample();
       parseData();
       serialPrintMessage();
@@ -135,7 +136,7 @@ void serialPrintMessage() {
     Serial.print(messageCore[i], 1);
     Serial.print(", ");
   }
-  for (int i = 0; i < 10; i++) {
+/*   for (int i = 0; i < 10; i++) {
     Serial.print(continuityPyros[i]);
     Serial.print(", ");
   }
@@ -146,7 +147,7 @@ void serialPrintMessage() {
   for (int i = 0; i < 2; i++) {
     Serial.print(kalmanState[i], 0);
     Serial.print(", ");
-  }
+  } */
   Serial.println("");
 }
 
@@ -159,7 +160,7 @@ void messageAppend(float info, bool reset = false) {
   if (reset) messCounter = 0;
   if (messCounter < messCoreLenght)
     messageCore[messCounter] = info;
-  messCounter++;
+    messCounter++;
 }
 
 void parseData() {
@@ -180,14 +181,13 @@ void parseData() {
   messageAppend(sens.euler[1]);
   messageAppend(sens.euler[2]);
   messageAppend(sens.maxAlt);
-  //messageAppend(sens.refPressure);
 }
 
 void dynamicDelay() {
   /*
     Delays the running of the code without actually stopping it
   */
-  while (int(millis() - lastTime) < (1000 / sampleRate)) {
+  while (int(millis() - lastTime) < sampleDelay) {
     delay(1);
   }
   lastTime = millis();
@@ -392,5 +392,31 @@ void touchDownInit() {
     sens.setIMUMode(HIGH_RATE);
     sens.imu.setMode(OPERATION_MODE_AMG);
     touchDownInit = false;
+  }
+}
+
+
+/*
+  Esta funcion tiene uso especialmente cuando se está en IDLE en el launchpad para enviar comandos a la computadora a bordo
+  Esta funcion recive ese comando y lleva a cabo trasmisiones respectivas a cada comando
+*/
+void checkCommand() {
+  lora.checkReceive();
+  byte command = lora.lastCommand;
+  if(command == 0x03) {
+    //Comando de enviar datos de GPS
+    Serial.println("I'll send GPS DATA");
+    lora.lastCommand = 0x00;
+    gps.updateGPS();
+    lora.transmitGPS(gps.getFixes(), gps.getLatitude(), gps.getLongitude());
+  } else if(command == 0x04) {
+    //Comando de enviar datos de canales pirotécnicos
+    Serial.println("I'll send Pyro data");
+    pyro.checkContinuityAll(continuityPyros);
+    lora.transmitPyroInfo(continuityPyros);
+    lora.lastCommand = 0x00;
+  } else if(command == 0x05) {
+    Serial.println("I'll send chamber data");
+    lora.lastCommand = 0x00;
   }
 }

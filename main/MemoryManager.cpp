@@ -19,10 +19,10 @@ bool MemoryManager::begin(char type, int csPin) {
   return SD.begin(csPin);
 }
 
-void MemoryManager::logData(float message[]) {
+void MemoryManager::logData(float message[], int length) {
  dataFile = SD.open("Volta.txt", FILE_WRITE);
     if (dataFile) {
-        for (int i = 0; i < 18; i++) {
+        for (int i = 0; i < length; i++) {
             dataFile.print(message[i]);
             if (i < 17) dataFile.print(", ");
         }
