@@ -12,7 +12,7 @@ using namespace matplotlibcpp;  // Now we can use plt directly
 //THIS IS HOW TO COMPILE THIS PROGRAM: g++ quickPlot.cpp -I/usr/include/python3.10 -lpython3.10 -o quickPlot && ./quickPlot
 
 void plot_csv_data(vector<string>& filenames) {
-    vector<vector<double>> time, position, velocity;
+    vector<vector<double>> time, position, velocity, acceleration;
     
     for(const string& filename : filenames) {
         ifstream file(filename);
@@ -22,7 +22,7 @@ void plot_csv_data(vector<string>& filenames) {
         }
         
         string line;
-        vector<double> time_data, position_data, velocity_data;
+        vector<double> time_data, position_data, velocity_data, acceleration_data;
 
         // Read data from the file
         while (getline(file, line)) {
@@ -30,17 +30,19 @@ void plot_csv_data(vector<string>& filenames) {
             double t, pos, vel, acc;
             char comma;
 
-            ss >> pos >> comma >> vel >> comma >> t;
+            ss >> pos >> comma >> vel >> comma >> acc >> comma >> t;
 
             time_data.push_back(t);
             position_data.push_back(pos);
             velocity_data.push_back(vel);
+            acceleration_data.push_back(acc);
         }
         file.close();
 
         time.push_back(time_data);
         position.push_back(position_data);
         velocity.push_back(velocity_data);
+        acceleration.push_back(acceleration_data);
     }
 
     // Plot Time vs Position
@@ -83,6 +85,23 @@ void plot_csv_data(vector<string>& filenames) {
     xlabel("Time (s)");
     ylabel("Velocity");
     title("Time vs Velocity");
+    grid(true);
+
+    //Plot Time vs acceleration
+    figure();
+    if(acceleration[0].size() == time[0].size()) {
+        plot(time[0], acceleration[0], "g-");
+    } else {
+        cout << "Acceleration[0] ignored" << endl;
+    }
+    if(acceleration[1].size() == time[0].size()) {
+        plot(time[0], acceleration[1], "r-");
+    } else {
+        cout << "Acceleration[1] ignored" << endl;
+    }
+    xlabel("Time (s)");
+    ylabel("Acceleration");
+    title("Time vs Acceleration");
     grid(true);
 
     // Show all plots

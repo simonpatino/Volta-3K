@@ -4,7 +4,7 @@
 CXX = g++
 
 # Define compile flags
-CXXFLAGS = -I/usr/include/python3.10 -lpython3.10
+CXXFLAGS = -I/usr/include/python3.10 -I$(shell python3 -c "import numpy; print(numpy.get_include())") -lpython3.10
 
 # Define the target executable
 TARGET = constantVel
@@ -20,7 +20,7 @@ all: $(TARGET)
 
 # Rule to link the object files and create the executable
 $(TARGET): $(OBJ)
-	$(CXX) $(OBJ) -o $(TARGET) $(CXXFLAGS)
+	$(CXX) $(OBJ) -o $(TARGET) $(CXXFLAGS) -lpython3.10
 
 # Rule to compile .cpp files into .o object files
 %.o: %.cpp

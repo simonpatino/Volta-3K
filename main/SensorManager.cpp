@@ -4,6 +4,7 @@
 #include <Adafruit_BNO055.h>
 #include "Constants.h"
 #include "Wire.h"
+#include <map>
 
 SensorManager::SensorManager() {
 
@@ -24,21 +25,36 @@ bool SensorManager::begin() {
   setIMUMode(MID_RATE);
 }
 
-void SensorManager::sample() {
+void SensorManager::readSensors(std::map<String, float> &dataDict) {
   static float prevAtl;
-  temp = baro.readTemperature();       // °C
-  prss = baro.readPressure() / 100.0F; // hPa
-  alt = baro.readAltitude(refPressure); // hPa
-  deltaAlt = alt - prevAtl;
-  humty = baro.readHumidity();          // %
-  prevAtl = alt;
-  if(alt > maxAlt) maxAlt = alt;
-  euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
-  accData = imu.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
-  angVelData = imu.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
-  linAccData = imu.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
-  //magData = mu.getVector(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
-  //gravityData = imu.getVector(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
+  dataDict["temp"] = baro.readTemperature();       // °C
+  dataDict["prss"] = baro.readPressure() / 100.0F; // hPa
+  dataDict["alt"] = baro.readAltitude(refPressure); // hPa
+  dataDict["deltaAlt"] = dataDict["alt"] - prevAtl;
+  dataDict["humty"] =  baro.readHumidity(); // %;
+  prevAtl = dataDict["alt"];
+  if(dataDict["alt"] > dataDict["maxAlt"]) dataDict["maxAlt"] = dataDict["alt"];
+  imu::Vector<3> euler = imu.getVector(Adafruit_BNO055::VECTOR_EULER);
+  dataDict["euler0"] = euler[0];
+  dataDict["euler1"] =  euler[1];
+  dataDict["euler2"] =  euler[2];
+  imu::Vector<3> accData = imu.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+  dataDict["accData0"] = accData[0];
+  dataDict["accData1"] = accData[1];
+  dataDict["accData2"] = accData[2];
+  imu::Vector<3> angVelData = imu.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+  dataDict["angVelData0"] = angVelData[0];
+  dataDict["angVelData1"] = angVelData[1];
+  dataDict["angVelData2"] = angVelData[2];
+  imu::Vector<3> linAccData = imu.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+  dataDict["linAccData0"] = linAccData[0];
+  dataDict["linAccData1"] = linAccData[1];
+  dataDict["linAccData2"] = linAccData[2];
+  
+  dataDict["time"] = millis();
+
+  //imu::Vector<3> magData = mu.getVector(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
+  //imu::Vector<3> gravityData = imu.getVector(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
   /*
     The lib should be aware of the fact it is working in fusion mode or not to calculate angles an everything else by itself
   */
@@ -50,6 +66,7 @@ void SensorManager::setReferencePressure() {
     //Update the pressure with the mean equation
     refPressure = (i * refPressure + (baro.readPressure() / 100.0F)) /(i+1);
   }
+  Serial.println("Reference pressure taken");
 }
 
 void SensorManager::setBaroMode(ODR_MODES mode) {
@@ -90,7 +107,7 @@ bool SensorManager::setIMUMode(ODR_MODES mode) {
     result = (ACC_NORMAL << 5) | (ACC_BW_500HZ << 2) | ACC_RNG_16G;
   } else return 0;
 
-  Serial.println(result);
+  //Serial.println(result);
 
   Wire2.beginTransmission(IMU_ADDRESS);
   Wire2.write(0x08);

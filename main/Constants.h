@@ -13,9 +13,9 @@
 #define CS_FLASH 2
 #define CS02 4
 #define CS03 5
-#define B 6
-#define G 7
-#define R 8
+#define BLED 6
+#define GLED 7
+#define RLED 8
 #define RST 9
 #define CS_LORA 10
 #define MOSI0 11

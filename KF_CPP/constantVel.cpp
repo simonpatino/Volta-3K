@@ -35,10 +35,10 @@ void writeToCSV(const string &filename, const vector<double> &time, const vector
 int main() {
     // Simulation parameters
     double time = 0.0;
-    const double timeStep = .25; // seconds
-    const double totalTime = 40.0; // seconds
+    const double timeStep = .01; // seconds
+    const double totalTime = 11.0; // seconds
     double position = 0.0;
-    const double constantVelocity = -.8; // m/s
+    const double constantVelocity = -15.5; // m/s
     const double noiseVar = 1.5; // Standard deviation of Gaussian noise
 
     // Random number generator setup for Gaussian noise

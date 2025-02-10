@@ -1,0 +1,31 @@
+# Makefile
+
+# Define compiler
+CXX = g++
+
+# Define compile flags
+CXXFLAGS = -I/usr/include/python3.10 -I$(shell python3 -c "import numpy; print(numpy.get_include())") -lpython3.10
+
+# Define the target executable
+TARGET = draggedDescentSim
+
+# Define the source files
+SRC = draggedDescentSim.cpp quickPlot.cpp
+
+# Define the object files
+OBJ = $(SRC:.cpp=.o)
+
+# Default target to build the executable
+all: $(TARGET)
+
+# Rule to link the object files and create the executable
+$(TARGET): $(OBJ)
+	$(CXX) $(OBJ) -o $(TARGET) $(CXXFLAGS) -lpython3.10
+
+# Rule to compile .cpp files into .o object files
+%.o: %.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS)
+
+# Rule to clean up object files and executable
+clean:
+	rm -f $(OBJ) $(TARGET)
