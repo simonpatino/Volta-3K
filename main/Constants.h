@@ -56,7 +56,7 @@
 #define P_CHK5B 31
 #define PYRO5_B 32
 
-const int POWDERCHAMBERTEMP[] = {26, 27, 28, 22};
+const int POWDERCHAMBERTEMP_PINS[] = {26, 27, 28, 22};
 
 #define IMU_ADDRESS 0x28
 

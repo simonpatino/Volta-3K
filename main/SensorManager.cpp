@@ -83,6 +83,13 @@ void SensorManager::setBaroMode(ODR_MODES mode) {
 }
 
 bool SensorManager::setIMUMode(ODR_MODES mode) {
+  /*
+    The IMU can be set to multiple different standard modes according to the datasheet
+    In general there are to types: Fusion and no-fusion
+    Fusion modes use a KF filter to estimate multiple more variables but are limited to sense a maximum of 4g of acceleration per axis
+    Non fusion modes just pull raw data and should only consider be used in the Idling so it is more realiable to detect high accelerations (boosting)
+    This function allows to set the BNO055 in some of those standard modes or into other custom modes.
+  */
   if(mode == IMUONLY_IMU) {
     imu.setMode(OPERATION_MODE_IMUPLUS);
     return 1;
@@ -90,15 +97,18 @@ bool SensorManager::setIMUMode(ODR_MODES mode) {
     imu.setMode(OPERATION_MODE_NDOF);
     return 1;
   } 
+
   //Change to Config Mode:
-  imu.setMode(OPERATION_MODE_CONFIG); //This mode let's us set the configuration we want
+  imu.setMode(OPERATION_MODE_CONFIG); //This mode let's us set the configuration as we want it. Very customed
   int result = 0;
 
   Wire2.beginTransmission(IMU_ADDRESS);
-  Wire2.write(0x07);
+  Wire2.write(0x07); // Im pretty sure this sets the I2C to the second page of the registers
   Wire2.write(0x01);
   Wire2.endTransmission();
 
+
+  //This gives higher control on the BNO055 performance.
   if(mode == LOW_RATE) {
     result = (ACC_NORMAL << 5) | (ACC_BW_15_63HZ << 2) | ACC_RNG_2G;
   } else if(mode == MID_RATE) {
@@ -120,7 +130,7 @@ bool SensorManager::setIMUMode(ODR_MODES mode) {
   Wire2.write(0x00);
   Wire2.endTransmission();
 
-  imu.setMode(OPERATION_MODE_ACCGYRO); //Only activate acc and gyro, if mag is needed change this
+  imu.setMode(OPERATION_MODE_ACCGYRO); //Only activate acc and gyro, if mag is needed change this. This is a no fusion mode
 
   return 1;
 }

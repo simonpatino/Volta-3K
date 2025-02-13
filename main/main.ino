@@ -1,50 +1,79 @@
 /*
   TODO:
-  - Write the Kalman Filter
   - Include the PID test algorithm, log its output
   - Change some stage termination conditions to be according to the state given by the filter
-  - Enable a SD card reading mode
-  - Write all log data into the SD Card after touchdown
+  - Write all log data into the SD Card after touchdown (better flash-sd cowork)
   - Enable command reading on idle for flight termination
   - Include CATO detection and instant flight termination when the state looks wrong
-  - Include Software on the Loop using an SD card test file for easier testing
+  - Take into account than the sensed acceleration is the proper and not the net acceleration
+  - Fix GPS NOT FOUND condition, maybe add a few retries
+  - Transmission of stage change
+  - Figure out if desable and re-enabling fusion mode requires re-calibration
 */
 
-#include "Sigma.h"
-#include "KalmanFilter.h"
-#include "SensorManager.h"
-#include "PyroController.h"
-#include "LoRaComm.h"
-#include "MemoryManager.h"
-#include "GPSController.h"
-#include <SD.h>
-#include <map>
+#include "Sigma.h" //For creating and managing the sigmapoints used in the UKF
+#include "KalmanFilter.h" //For managing the KF atributes and equations
+#include "SensorManager.h" //For managing the BNO055 and the BME280
+#include "PyroController.h" // Manages the pyrochannels check, fire and kill capabilites
+#include "LoRaComm.h" // Manages the LoRa module
+#include "MemoryManager.h" // Manages both the Flash module and the Teensy 4.1 built-in microSD card slot
+#include "GPSController.h" // Manages the GPS M9N
+#include <map> // The last sensed data is saved in a map so it is easier  to access the data by all code sectors that might need it
+#include <ArduinoEigen.h> // To interact with the Kalman Filter using matrices and vectors
 #include <string>
-#include <ArduinoEigen.h>
 
-const int messCoreLenght = 11;
-float messageCore[messCoreLenght] = {};
+const int messCoreLenght = 11; //Lenght of the main data packet that we'll save in memory and send through LoRa
+float messageCore[messCoreLenght] = {}; //The actual data in a float array. It has an specific order
 
-std::map<String, float> currentData;
+std::map<String, float> currentData; // The last recorded data
+/*
+  KEYS
+  - iter: the number of the iteration of sensed data, from 1 and on
+  - time: current time
+  - temp: sensed temperature by BME280
+  - prss: sensed pressure by BME280
+  - realAlt: it is the "actual" altidude of the rocket, specifically used for simulation mode
+  - alt: the sensed (then noisy) altitude of the rocket given by the BME280
+  - deltaAlt: difference between the last sensed alt and the current alt. Should not be used and maybe should be deleted.
+  - humty: humidity
+  - angVelData0: X-axis gryscope reading
+  - angVelData1: Y-axis gryscope reading
+  - angVelData2: Z-axis gryscope reading
+  - accData0: X-axis acceleration reading
+  - accData1: Y-axis acceleration reading
+  - realAccData2: Z-axis raw pull (with no noise) if running in simulation mode
+  - accData2: Z-axis acceleration reading of the BNO055 (with noise)
+    The next 6 variables can only be read if the BNO055 is set to be in Fusion Mode (using the built-in Kalman Filter)
+  - euler0: X-axis rotation
+  - euler1: Y-axis rotation
+  - euler2: Z-axis rotation
+  - linAccData0: intertial-X-axis acceleration
+  - linAccData1: intertial-Y-axis acceleration
+  - linAccData2: intertial-Z-axis acceleration
+
+  For simulation only:
+  - rawVel: velocity reading from the simulation, used to verify KF performance
+
+*/
 
 //Global variables that might be useful here and there.
 int sampleDelay = 1000;      //Fixed sampling delay for the whole system (in ms)
 long lastTime = millis();  //Current time since boot up. Manages the dynamic delay
 long cycleNumber = 0;      //Cycle number counter. Works as an ID for each data package
-bool continuityPyros[10] = { false, false, false, false, false, false, false, false, false, false };
-float powderChambTemp[4] = {};
+bool continuityPyros[10] = { false, false, false, false, false, false, false, false, false, false }; //Array with the continuity data of the pyrochannels
+float powderChambTemp[4] = {}; // Array with temperature data from the LM35
 
 //KalmanFilter variables
 const int x_dim = 3;
 const int z_dim = 2;
 const int u_dim = 0;
-const float process_variance = 0.3872;
-const float pos_measurement_variance = 50.;
-const float acc_measurement_variance = 10.;
-VectorXf kalmanState = VectorXf::Zero(x_dim);    // All elements are 0
-float alpha = 0.01, beta = 2.0, kappa = 0.;  //Sigma points generation parameters
+const float process_variance = 0.3872; //Q variance for set_Q_discrete_white_noise()
+const float pos_measurement_variance = 50.; //R matrix variance for position
+const float acc_measurement_variance = 10.; //R matrix variance for acceleration
+VectorXf kalmanState = VectorXf::Zero(x_dim);    // KF state vector, updated with get_x()
+float alpha = 0.01, beta = 2.0, kappa = 0.;  //Sigma points generation parameters using the Merwe Method
 
-//Rocket properties:
+//Rocket propertiesm used for the prediction step of the KalmanFilter
 const double gravity = -9.8;  // m/s²
 const double Cd = 0.1;        // Drag coefficient
 const double rho = 1.225;     // Air density (kg/m³)
@@ -55,11 +84,12 @@ const double mass = 5.0;      // Mass (kg)
 //Simulation variables
 const bool IS_SIMULATION = true;  //This variable allows for software on a loop integration
 const bool VERBOSE = true;        //This variable allows for explicit printing of stage change and other flight events for debugging
-int simDataColumnNumber = 0;
-float baroStdDev = 5;
-float accelStdDev = 2;
+int simDataColumnNumber = 0; //Number of columns in the CSV simulation data file
+float baroStdDev = 5; // Expected noise of the barometer sensor
+float accelStdDev = 2; //Expected noise of the accelerometer sensor
 
 
+//Declare managers:
 PyroController pyro;
 GPSController gps;
 MemoryManager flash;
@@ -67,18 +97,19 @@ MemoryManager sd;
 SensorManager sens;
 LoRaComm lora;
 MerweScaledSigmaPoints sigmaPoints(x_dim, alpha, beta, kappa);
-KalmanFilter kf(x_dim, z_dim, u_dim, sigmaPoints);  // Creating the object with default dimensions
+KalmanFilter kf(x_dim, z_dim, u_dim, sigmaPoints);
 
 
-STAGES currentStage;
+STAGES currentStage; //The stages are handled using an enumerator in Constants.h
 
 void setup() {
   Serial.begin(9600);
-  pinMode(RLED, OUTPUT);
+  pinMode(RLED, OUTPUT); //Cause why not
   currentStage = STARTUP;
 }
 
 void loop() {
+  //Outside the switch structure is everything that runs in every single iteration no matter the rocket stage
   dynamicDelay();
   pyro.readBayTempAll(powderChambTemp);
   switch (currentStage) {
@@ -128,7 +159,7 @@ void loop() {
       drogueInit();
       /*
       More wanted actions here
-    */
+      */
       sample();
       //parseData();
       //serialPrintMessage();
@@ -181,11 +212,14 @@ void serialPrintMessage() {
   Serial.println("");
 }
 
+/*
+  * Samples data from the rocket enviroment or it pulls data from the SD card if it is a Simulation
+*/
 void sample() {
   static float prevSampleTime = 0.0f;
   if (IS_SIMULATION) {
     currentData["intTime"] = 0;
-    while(currentData["intTime"] < (sampleDelay/1000.)) {
+    while(currentData["intTime"] < (sampleDelay/1000.)) { //This while loop is so we can manage slowed-reading rates for KF performance and still have a high resolution data file
       if (sd.readSimulatedData(currentData)) {
         //Les agregamos ruido gausiano de media 0 a las dos mediciones que podemos tomar
         currentData["alt"] = addGaussianNoise(currentData["realAlt"], 0, baroStdDev);
@@ -298,7 +332,7 @@ void messageAppend(float info, bool reset = false) {
     Enables the parsing algorithm to be easier to change the other way easier 
   */
   static int messCounter = 0;
-  if (reset) messCounter = 0;
+  if (reset) messCounter = 0; //allows to reset the index
   if (messCounter < messCoreLenght)
     messageCore[messCounter] = info;
   messCounter++;
@@ -342,14 +376,14 @@ void dynamicDelay() {
 
 /*
   * From here on, every init function initializes an specific stage of the flight and its only called once.
-  * Every termination function terminates a function, meaning, it detects that the stage termination condiction was matched to 
+  * Every termination function terminates a stage, meaning, it detects that the stage termination condiction was matched to 
   asign the current stage as the next one in order.
 */
 
 void startUpInit() {
   /*  
-    Init boards neccesary systems
-    It only works the first time it is called ever so sensors are not accidently rebooted
+    Initialize board's neccesary systems
+    It only works the first time it is ever called so sensors are not accidently rebooted
     This code would usually go in the setup function but as it is part of a rocket-stage is better to create a function for it
   */
   static bool startupInitializer = true;  //Variable that protects this function from beeing called more than once
@@ -382,7 +416,7 @@ void startUpInit() {
         delay(1000);
       }
     }
-    if (!flash.begin('f', CS_FLASH)) {
+    if (!flash.begin('f', CS_FLASH)) { //f for flash
       while (1) {
         if (VERBOSE) {
           Serial.println("FLASH NOT FOUND");
@@ -390,7 +424,7 @@ void startUpInit() {
         delay(1000);
       }
     }
-    if (!sd.begin('s', CS_SD)) {
+    if (!sd.begin('s', CS_SD)) { //s for SDcard
       while (1) {
         if (VERBOSE) {
           Serial.println("COULDN'T REACH SD CARD");
@@ -398,7 +432,7 @@ void startUpInit() {
         delay(1000);
       }
     }
-    if (IS_SIMULATION) {
+    if (IS_SIMULATION) { //Initialize simulation if we are running one
       randomSeed(2);
       if (VERBOSE) {
         Serial.println("This is a simulation");
@@ -427,14 +461,14 @@ void startUpInit() {
     }
 
     /*
-      *- Initialize Kalman Filter for state tracking.
+      * Initialize Kalman Filter for state tracking.
     */
     VectorXf initial_state(x_dim);
     MatrixXf initial_covariance(x_dim, x_dim);
     initial_state << 0, 0, 0;
-    initial_covariance << 500, 0, 0,
-      0, 500, 0,
-      0, 0, 500;
+    initial_covariance << 500, 0, 0, //could be all zeros as we know for sure that the rocket is in the ground and idleing
+                        0, 500, 0,
+                        0, 0, 500;
     kf.initialize_state(initial_state, initial_covariance);
     MatrixXf H(z_dim, x_dim);
     MatrixXf R(z_dim, z_dim);
@@ -483,9 +517,14 @@ void idleInit() {
     if (VERBOSE) {
       Serial.println("Idle mode initialized");
     }
+    /*
+      We can't use the Fusion mode of the BNO055 as it's maximum acceleration is 4g's and the rocket is expected
+      to feel up to 6g on launch
+    */
     /*     sens.setBaroMode(LOW_RATE);
     sens.setIMUMode(HIGH_RATE);
     sens.imu.setMode(OPERATION_MODE_AMG); */
+
     idleInitializer = false;
   }
 }
@@ -576,8 +615,9 @@ void drogueInit() {
 }
 
 void drogueTermination() {
-  /*Check for stage finalization condition:
-    * The altitude is lower than 500mts
+  /*
+    Check for stage finalization condition:
+    * The altitude is lower than 1200mts
   */
   if (currentData["alt"] < 1200) {
     if (VERBOSE) {

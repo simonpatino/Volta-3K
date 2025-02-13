@@ -5,8 +5,9 @@
 PyroController::PyroController() {}
 
 bool PyroController::begin() {
+  //Initialize intput and output pins
   for (int i = 0; i < 4; i++) {
-    pinMode(POWDERCHAMBERTEMP[i], INPUT);
+    pinMode(POWDERCHAMBERTEMP_PINS[i], INPUT);
   }
   for (int i = 0; i < 5; i++) {
     for (int j = 0; j < 2; j++) {
@@ -35,18 +36,18 @@ void PyroController::killPyros() {
   but it's to late for that
   * selfContained makes this function both fire and kill the pyro with a constant delay
 */
-bool PyroController::firePyro(int number, char letter, bool selfContained) { 
+bool PyroController::firePyro(int number, char letter, bool selfContained) {
   int j = 0;
   if (letter == 'a' || letter == 'A') {
     j = 0;
-  } else if(letter == 'b' || letter == 'b'){
+  } else if (letter == 'b' || letter == 'b') {
     j = 1;
   } else {
     return 0;
   }
   int pyroPin = PYRO_FIRE_PINS_MATRIX[number - 1][j];
   digitalWrite(pyroPin, HIGH);
-  if(selfContained) {
+  if (selfContained) {
     delay(fireDelay);
     digitalWrite(pyroPin, LOW);
   }
@@ -56,26 +57,25 @@ bool PyroController::firePyro(int number, char letter, bool selfContained) {
 void PyroController::checkContinuityAll(bool continuityPyros[]) {
   int k = 0;
   for (int i = 0; i < 5; i++) {
-      for (int j = 0; j < 2; j++) {
+    for (int j = 0; j < 2; j++) {
       continuityPyros[k] = digitalRead(PYRO_CHECKS[i][j]);
       k++;
     }
   }
 }
 
-bool PyroController::checkContinuitySingle(int number, char letter) { 
+bool PyroController::checkContinuitySingle(int number, char letter) {
   int j = 0;
   if (letter == 'a' || letter == 'A') {
     j = 0;
-  } else if(letter == 'b' || letter == 'b'){
+  } else if (letter == 'b' || letter == 'b') {
     j = 1;
   } else return 0;
   return digitalRead(PYRO_CHECKS[number - 1][j]);
 }
 
 void PyroController::readBayTempAll(float powderChambTemp[]) {
-  for(int i = 0; i < 4; i++) {
-    powderChambTemp[i] = analogRead(POWDERCHAMBERTEMP[i]);
+  for (int i = 0; i < 4; i++) {
+    powderChambTemp[i] = analogRead(POWDERCHAMBERTEMP_PINS[i]);
   }
 }
-
