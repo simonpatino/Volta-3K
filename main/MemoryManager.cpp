@@ -9,43 +9,48 @@
 MemoryManager::MemoryManager() {
 }
 
-bool MemoryManager::begin(char type, int csPin) {
-  if(type == 'f') {
-    SPI.setMOSI(11);
-    SPI.setMISO(12);
-    SPI.setSCK(13); 
-  }
+bool MemoryManager::begin(int csPin) {
+  pinMode(csPin, OUTPUT);
   bool b = SD.begin(csPin);
+  digitalWrite(CS_SD, HIGH);
+  checkAndDeleteFile(dataFileName);
   checkAndDeleteFile(kfRealFileName);
   checkAndDeleteFile(kfMeasuFileName);
   checkAndDeleteFile(kfConfigFileName);
   checkAndDeleteFile(kfOutputFileName);
+  checkAndDeleteFile(kfPerformanceFileName);
   return b;
 }
 
 void MemoryManager::logData(float message[], int length, const char* fileName) {
- dataFile = SD.open(fileName, FILE_WRITE);
-    if (dataFile) {
-        for (int i = 0; i < length; i++) {
-            dataFile.print(message[i], 3);
-            if (i < (length - 1)) dataFile.print(", ");
-        }
-        dataFile.println();
-        dataFile.close();
-    } else {
-      Serial.println("Error opening data file");
-      while(1) {
-        delay(5000);
-      }
+  digitalWrite(CS_SD, HIGH);
+  digitalWrite(CS_FLASH, LOW);
+  dataFile = SD.open(fileName, FILE_WRITE);
+  digitalWrite(CS_FLASH, HIGH);
+  if (dataFile) {
+    for (int i = 0; i < length; i++) {
+      dataFile.print(message[i], 3);
+      if (i < (length - 1)) dataFile.print(", ");
     }
+    dataFile.println();
+    dataFile.close();
+  } else {
+    Serial.println("Error opening data file");
+    while (1) {
+      delay(5000);
+    }
+  }
 }
 
 // Function to detect the number of columns in the CSV file
 int MemoryManager::startSimulationData() {
+  digitalWrite(CS_SD, HIGH);
+  digitalWrite(CS_FLASH, LOW);
   simFile = SD.open(simFileName, FILE_READ);
+  digitalWrite(CS_SD, LOW);
   if (!simFile) {
     Serial.println("Error opening simulation file.");
-    while(1) {
+    while (1) {
       delay(500);
       Serial.println("Killed");
     }
@@ -78,7 +83,7 @@ int MemoryManager::startSimulationData() {
     Roll rate (°/s),	Pitch rate (°/s),	Yaw rate (°/s), Latitude (°),	Longitude (°)
 
 */
-bool MemoryManager::readSimulatedData(std::map<String, float> &dataDict) {
+bool MemoryManager::readSimulatedData(std::map<String, float>& dataDict) {
   float rowData[numColumns];
   if (!simFile.available()) {
     return false;  // No more data to read because the pointer reached the end of the file
@@ -101,7 +106,7 @@ bool MemoryManager::readSimulatedData(std::map<String, float> &dataDict) {
     rowData[column] = cell.toFloat();  // Convert the string to float and store it
   }
   //Serial.println(numColumns);
-/*   for (int i = 0; i < numColumns; i++) {
+  /*   for (int i = 0; i < numColumns; i++) {
     Serial.print(rowData[i]);
     Serial.print(", ");
   }
@@ -109,37 +114,40 @@ bool MemoryManager::readSimulatedData(std::map<String, float> &dataDict) {
   static float prevAtl;
   dataDict["iter"] = rowData[0];
   dataDict["time"] = rowData[1];
-  dataDict["temp"] = rowData[12];       // °C
-  dataDict["prss"] = rowData[6];   // hPa
-  dataDict["realAlt"] = rowData[5]; // hPa
+  dataDict["temp"] = rowData[12];    // °C
+  dataDict["prss"] = rowData[6];     // hPa
+  dataDict["realAlt"] = rowData[5];  // hPa
   dataDict["deltaAlt"] = dataDict["alt"] - prevAtl;
-  dataDict["humty"] =  rowData[13]; // %;
+  dataDict["humty"] = rowData[13];  // %;
   prevAtl = dataDict["alt"];
-  if(dataDict["alt"] > dataDict["maxAlt"]) dataDict["maxAlt"] = dataDict["alt"];
+  if (dataDict["alt"] > dataDict["maxAlt"]) dataDict["maxAlt"] = dataDict["alt"];
   dataDict["euler0"] = 0.0;
   dataDict["euler1"] = 0.0;
   dataDict["euler2"] = 0.0;
+
   dataDict["accData0"] = rowData[2];
-  dataDict["accData1"] = rowData[3];
-  dataDict["realAccData2"] = rowData[4];
+  dataDict["accData2"] = rowData[3];
+
   dataDict["linAccData0"] = rowData[2];
-  dataDict["linAccData1"] = rowData[3];
-  dataDict["linAccData2"] = rowData[4];
+  dataDict["linAccData2"] = rowData[3];
+
+  dataDict["realAccData1"] = rowData[4];
+  
   dataDict["angVelData0"] = rowData[9];
   dataDict["angVelData1"] = rowData[8];
   dataDict["angVelData2"] = rowData[7];
 
 
-  dataDict["rawVel"] = rowData[numColumns - 1]; //Raw (noisy) velocity from the simulation, is the last column
+  dataDict["rawVel"] = rowData[numColumns - 1];  //Raw (noisy) velocity from the simulation, is the last column
 
   return true;  // Successfully read the row
 }
 
 void MemoryManager::checkAndDeleteFile(const char* filename) {
-  if (SD.exists(filename)) { // Check if the file exists
-    if (SD.remove(filename)) { // Try to delete the file
-      /*Serial.print("File deleted successfully: ");
-      Serial.println(filename); */
+  if (SD.exists(filename)) {    // Check if the file exists
+    if (SD.remove(filename)) {  // Try to delete the file
+      Serial.print("File deleted successfully: ");
+      Serial.println(filename);
     }
   }
 }

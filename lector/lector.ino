@@ -7,22 +7,19 @@
 
 File myFile;
 
-//const int chipSelect = BUILTIN_SDCARD; //Pull from the SD Card
-const int chipSelect = 2; //Pull from the Flash in the Volta PCB V1
+const int chipSelect = BUILTIN_SDCARD; //Pull from the SD Card
+//const int chipSelect = 2; //Pull from the Flash in the Volta PCB V1
 
 void setup()
-{
- //UNCOMMENT THESE TWO LINES FOR TEENSY AUDIO BOARD:
-
-/*   SPI.setMOSI(11);  // Audio shield has MOSI on pin 7
-  SPI.setMISO(12);  // Audio shield has MOSI on pin 7
-  SPI.setSCK(13);  // Audio shield has SCK on pin 14 */
-  
+{ 
  // Open serial communications and wait for port to open:
   Serial.begin(9600);
    while (!Serial) {
     ; // wait for serial port to connect.
   }
+
+  Serial.println(BUILTIN_SDCARD);
+
 
 
   Serial.print("Initializing SD card...");
@@ -49,7 +46,7 @@ void setup()
     myFile.close();
   } else {
   	// if the file didn't open, print an error:
-    Serial.println("error opening Volta.txt");
+    Serial.println("error opening file");
   }
 }
 
@@ -57,5 +54,3 @@ void loop()
 {
 	// nothing happens after setup
 }
-
-

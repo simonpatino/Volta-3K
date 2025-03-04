@@ -11,6 +11,7 @@
 #define RX1 0
 #define TX1 1
 #define CS_FLASH 2
+#define CS_SD BUILTIN_SDCARD
 #define CS02 4
 #define CS03 5
 #define BLED 6
@@ -28,7 +29,7 @@
 #define FLASH_SPI_MOSI 11
 #define FLASH_SPI_MISO 12
 #define FLASH_SPI_SCK 13
-#define CS_SD BUILTIN_SDCARD
+
 
 
 //Right Side

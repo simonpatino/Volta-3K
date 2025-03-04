@@ -8,7 +8,7 @@ class MemoryManager {
     File dataFile;
     File simFile; //File used to pull data for SITL
     MemoryManager();
-    bool begin(char type, int csPin);
+    bool begin(int csPin);
     void logData(float message[], int length, const char* fileName);
     bool readSimulatedData(std::map<String, float> &dataDict);
     int startSimulationData();
@@ -16,9 +16,12 @@ class MemoryManager {
     char kfMeasuFileName[14] = "kf_measu.csv"; //Measurement data sensed 
     char kfConfigFileName[14] = "kf_config.csv"; //time and x_dim for automatic plotting 
     char kfOutputFileName[14] = "kf_output.csv"; //Kalman Filter output state
+    char kfPerformanceFileName[19] = "kf_performance.csv"; //Kalman Filter output state
     char dataFileName[10] = "Volta.txt";
   private:
-    char simFileName[19] = "simDataDragged.csv";
+    char simFileName[19] = "simDataOpenSim.csv";
+    int csPin;
+    //char simFileName[19] = "simDataDragged.csv";
     //char simFileName[18] = "simDataLinear.csv";
     //char simFileName[12] = "simData.csv";
     Sd2Card card;

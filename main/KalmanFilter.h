@@ -69,10 +69,12 @@ public:
 
   //Get NESS AVERAGE
   float get_NEES_AVG() const;
+  float get_NEES_CURR() const;
 
   //Get Likelihoods
   float get_likelihood() const;
   float get_log_likelihood() const;
+  float get_rejectionThreshold() const;
 
   //Get real-estimated error
   VectorXf get_y_real() const;
@@ -103,7 +105,7 @@ private:
   VectorXf y_real;         //For simulation only
 
   int x_dim, z_dim, u_dim, it;  //'it' is iteration number
-  float NEES_avg, log_likelihood, likelihood;
+  float NEES_avg, currentNEES, log_likelihood, likelihood, rejectionThreshold = 70.0f;
   MerweScaledSigmaPoints points;  // Add this member variable
 
 };

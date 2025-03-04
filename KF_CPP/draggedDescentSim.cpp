@@ -7,6 +7,12 @@
 
 using namespace std;
 
+// Function to compute acceleration (drag + gravity)
+double computeAcceleration(double velocity, double Cd, double rho, double A, double mass, double gravity) {
+    double dragForce = 0.5 * Cd * rho * A * velocity * velocity * (velocity > 0 ? 1 : -1);
+    return gravity - (dragForce / mass);
+}
+
 // Function to write data to a CSV file
 void writeToCSV(const string &filename, const vector<double> &col1, const vector<double> &col2, 
                 const vector<double> &col3, const vector<double> &col4) {
@@ -29,19 +35,20 @@ void writeToCSV(const string &filename, const vector<double> &col1, const vector
 
 int main() {
     // Simulation parameters
-    double time = 0.0;
-    const double timeStep = .05; // seconds
-    const double totalTime = 200.; // seconds
-    double position = 0.0;
-    double velocity = 0.0; // Initial velocity
+    double time = 3;
+    const double timeStep = 0.05; // seconds
+    const double totalTime = 150.0; // seconds
+    double position = 703.2;
+    double velocity = 291.0; // Initial velocity
     const double gravity = -9.8; // m/s²
-    const double Cd = 0.1;  // Drag coefficient
-    const double rho = 1.225; // Air density (kg/m³)
-    const double A = 0.01;  // Cross-sectional area (m²)
-    const double mass = 5.0; // Mass (kg)
-    const double noiseVarPos = 250.0; // Noise variance
-    const double noiseVarVel = 5; // Noise variance
-    const double noiseVarAcc = 10; // Noise variance
+    double Cd = 0.47;  // Drag coefficient
+    const double rho = 1.112; // Air density (kg/m³)
+    const double A = 0.023787;  // Cross-sectional area (m²)
+    const double mass = 30.747; // Mass (kg)
+    const double noiseVarPos = 0.0; // Noise variance
+    const double noiseVarVel = 0.0; // Noise variance
+    const double noiseVarAcc = 0.0; // Noise variance
+    bool apogee = true;
 
     // Random number generator setup for Gaussian noise
     mt19937 gen(42);
@@ -57,16 +64,39 @@ int main() {
 
     // Simulation loop
     while (time <= totalTime) {
-        // Compute drag force
-        double dragForce = 0.5 * Cd * rho * A * velocity * velocity * (velocity > 0 ? 1 : -1);
-        double dragAcceleration = dragForce / mass;
+        if (velocity < 0) {
+            if (apogee) {
+                cout << "Apogee is at: " << position << endl;
+                apogee = false;
+            }
+            Cd = 1.16 + 0.47;  
+            if (position < 1200) {
+                Cd = 1.16 + 0.47+2.92;  
+            }
+        }
+        if (position < 0) {
+            time = totalTime;
+        }
 
-        // Compute total acceleration with noise
-        double noisyAcceleration = gravity - dragAcceleration + noise_acc(gen);
+        // RK4 Integration
+        double k1_vel = computeAcceleration(velocity, Cd, rho, A, mass, gravity);
+        double k1_pos = velocity;
 
-        // Update velocity and position
-        velocity += noisyAcceleration * timeStep + noise_vel(gen);
-        position += velocity * timeStep + noise_pos(gen);
+        double k2_vel = computeAcceleration(velocity + 0.5 * timeStep * k1_vel, Cd, rho, A, mass, gravity);
+        double k2_pos = velocity + 0.5 * timeStep * k1_vel;
+
+        double k3_vel = computeAcceleration(velocity + 0.5 * timeStep * k2_vel, Cd, rho, A, mass, gravity);
+        double k3_pos = velocity + 0.5 * timeStep * k2_vel;
+
+        double k4_vel = computeAcceleration(velocity + timeStep * k3_vel, Cd, rho, A, mass, gravity);
+        double k4_pos = velocity + timeStep * k3_vel;
+
+        // Update velocity and position using RK4
+        velocity += (timeStep / 6.0) * (k1_vel + 2 * k2_vel + 2 * k3_vel + k4_vel) + noise_vel(gen);
+        position += (timeStep / 6.0) * (k1_pos + 2 * k2_pos + 2 * k3_pos + k4_pos) + noise_pos(gen);
+
+        // Compute noisy acceleration
+        double noisyAcceleration = computeAcceleration(velocity, Cd, rho, A, mass, gravity) + noise_acc(gen);
 
         // Store values
         timeValues.push_back(time);

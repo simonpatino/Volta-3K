@@ -137,7 +137,6 @@ void UKF::update(VectorXd z) {
     it++;  // Increment iteration count
     y_av = y_av + (y - y_av) / it;  // Update error average
 
-        
     // Compute likelihood
     double exponent = -0.5 * y.transpose() * S.ldlt().solve(y); // Robust exponent calculation
     double log_normalization = -0.5 * (z.size() * log(2 * M_PI) + S.ldlt().vectorD().array().log().sum()); // Log normalization

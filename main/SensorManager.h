@@ -16,8 +16,15 @@ class SensorManager {
     void setReferencePressure();
     void setBaroMode(ODR_MODES mode);
     bool setIMUMode(ODR_MODES mode);
-    float refPressure = 1013.25;
+    float refPressure = 753.46;
+    bool saveCalibration();
+    void restoreCalibration();
+    void checkCalibrationStatus();
   private:
+    uint8_t offsets[22];  // Buffer to store calibration data
+    bool calibrationSaved = false;  // Flag to check if we have valid offsets
+    const int EEPROM_FLAG_ADDR = 0;      // Address to store flag (indicates valid calibration data)
+    const int EEPROM_OFFSET_ADDR = 1;    // Start address for offset data (22 bytes)
 };
 
 #endif

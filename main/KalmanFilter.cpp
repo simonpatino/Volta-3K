@@ -71,9 +71,19 @@ void KalmanFilter::predict(float dt, VectorXf u) {
 void KalmanFilter::update(VectorXf z) {
   S = H * (P * H.transpose()) + R;
   K = (P * H.transpose()) * (S.inverse());
-  x = x + K * (z - (H * x));
-  _IKH = (_I - (K * H));
-  P = ((_IKH * P) * _IKH.transpose()) + ((K * R) * K.transpose());
+  y = z - (H * x);
+
+  // Compute likelihood
+  float exponent = -0.5 * y.transpose() * S.ldlt().solve(y); // Robust exponent calculation
+  float log_normalization = -0.5 * (z.size() * log(2 * M_PI) + S.ldlt().vectorD().array().log().sum()); // Log normalization
+  log_likelihood = log_normalization + exponent; // Log-likelihood
+  likelihood = exp(log_likelihood); // Likelihood
+
+  if(!(abs(log_likelihood) > rejectionThreshold)) { //Measurment rejection if the log_likelihood signals a very unlikely measurement
+    x = x + K * y;
+    _IKH = (_I - (K * H));
+    P = ((_IKH * P) * _IKH.transpose()) + ((K * R) * K.transpose());
+  }
 }
 
 void KalmanFilter::unscented_transform(const MerweScaledSigmaPoints& sigma_points) {
@@ -215,6 +225,11 @@ float KalmanFilter::get_NEES_AVG() const {
   return NEES_avg;
 }
 
+//GET Current NEES
+float KalmanFilter::get_NEES_CURR() const {
+  return currentNEES;
+}
+
 //GET Likelihoods
 float KalmanFilter::get_log_likelihood() const {
   return log_likelihood;
@@ -222,6 +237,10 @@ float KalmanFilter::get_log_likelihood() const {
 
 float KalmanFilter::get_likelihood() const {
   return likelihood;
+}
+
+float KalmanFilter::get_rejectionThreshold() const {
+  return rejectionThreshold;
 }
 
 //Get real vs estimation state error
@@ -237,9 +256,9 @@ VectorXf KalmanFilter::error_update(VectorXf ground_state) {
 
 float KalmanFilter::NEES_UPDATE(VectorXf ground_state) {
   error_update(ground_state);
-  float current_NEES = (y_real.transpose()) * (P.inverse()) * (y_real);
-  NEES_avg = NEES_avg + (current_NEES - NEES_avg) / it;  // Update error average
-  return current_NEES;
+  currentNEES = (y_real.transpose()) * (P.inverse()) * (y_real);
+  NEES_avg = NEES_avg + (currentNEES - NEES_avg) / it;  // Update error average
+  return currentNEES;
 }
 
 
