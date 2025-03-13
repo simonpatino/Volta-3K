@@ -13,32 +13,41 @@ bool MemoryManager::begin(int csPin) {
   pinMode(csPin, OUTPUT);
   bool b = SD.begin(csPin);
   digitalWrite(CS_SD, HIGH);
-  checkAndDeleteFile(dataFileName);
-  checkAndDeleteFile(kfRealFileName);
-  checkAndDeleteFile(kfMeasuFileName);
-  checkAndDeleteFile(kfConfigFileName);
-  checkAndDeleteFile(kfOutputFileName);
-  checkAndDeleteFile(kfPerformanceFileName);
   return b;
 }
 
-void MemoryManager::logData(float message[], int length, const char* fileName) {
-  digitalWrite(CS_SD, HIGH);
-  digitalWrite(CS_FLASH, LOW);
+void MemoryManager::logFloatData(float message[], int length, const char* fileName, bool withGPS) {
   dataFile = SD.open(fileName, FILE_WRITE);
-  digitalWrite(CS_FLASH, HIGH);
   if (dataFile) {
-    for (int i = 0; i < length; i++) {
-      dataFile.print(message[i], 3);
-      if (i < (length - 1)) dataFile.print(", ");
+    if(withGPS) {
+      for (int i = 0; i < length-2; i++) {
+        dataFile.print(message[i], 3);
+        dataFile.print(", ");
+      }
+      dataFile.print(message[length-2], 7);
+      dataFile.print(", ");
+      dataFile.print(message[length-1], 7);
+    } else {
+      for (int i = 0; i < length; i++) {
+        dataFile.print(message[i], 3);
+        dataFile.print(", ");
+      }
     }
     dataFile.println();
     dataFile.close();
-  } else {
-    Serial.println("Error opening data file");
-    while (1) {
-      delay(5000);
+  }
+}
+
+void MemoryManager::logBoolData(bool message[], float time, int length, const char* fileName) {
+  dataFile = SD.open(fileName, FILE_WRITE);
+  if (dataFile) {
+    dataFile.print(time, 2);
+    for (int i = 0; i < length; i++) {
+      dataFile.print(message[i]);
+      dataFile.print(", ");
     }
+    dataFile.println();
+    dataFile.close();
   }
 }
 
@@ -150,4 +159,14 @@ void MemoryManager::checkAndDeleteFile(const char* filename) {
       Serial.println(filename);
     }
   }
+}
+
+void MemoryManager::deleteFiles() {
+  checkAndDeleteFile(dataFileName);
+  checkAndDeleteFile(pyroFileName);
+  checkAndDeleteFile(kfRealFileName);
+  checkAndDeleteFile(kfMeasuFileName);
+  checkAndDeleteFile(kfConfigFileName);
+  checkAndDeleteFile(kfOutputFileName);
+  checkAndDeleteFile(kfPerformanceFileName);
 }

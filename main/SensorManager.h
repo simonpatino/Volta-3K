@@ -20,6 +20,7 @@ class SensorManager {
     bool saveCalibration();
     void restoreCalibration();
     void checkCalibrationStatus();
+    void putToSleep();
   private:
     uint8_t offsets[22];  // Buffer to store calibration data
     bool calibrationSaved = false;  // Flag to check if we have valid offsets

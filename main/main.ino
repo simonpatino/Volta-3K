@@ -3,10 +3,9 @@
   Tasks that we depend on Simon for:
   - Include the PID test algorithm, log its output
   - Enhance KF fx function to reduce process variance, figure out how OpenRocket does it (maybe a RungeKutta?) | Simon please help imma die her
-  - Write all log data into the SD Card after touchdown (better flash-sd cowork). Figure out how tf to solve the fact that you can only use the SD global instance
-    Maybe accept the issue and just use the Flash...and create another ino file + python file to pull information from the flash  into csv files in the computer
 */
 
+#include <Arduino.h>
 #include "Sigma.h"           //For creating and managing the sigmapoints used in the UKF
 #include "KalmanFilter.h"    //For managing the KF atributes and equations
 #include "SensorManager.h"   //For managing the BNO055 and the BME280
@@ -18,8 +17,14 @@
 #include <ArduinoEigen.h>    // To interact with the Kalman Filter using matrices and vectors
 #include <string>
 
-const int messCoreLenght = 12;           //Lenght of the main data packet that we'll save in memory and send through LoRa
-float messageCore[messCoreLenght] = {};  //The actual data in a float array. It has an specific order
+const int messCoreLenght = 15;  //Lenght of the main data packet that we'll save in memory and send through LoRa
+const int mess2Lenght = 5;      //Lenght of the secundary data packet that we'll save in
+
+//Current order: "Iteration, Time (s), Accel_0, Accel_1, Accel_2, Alt, Press, Euler0, Euler1, Euler2, MaxAlt, Stage #, Sat #, Latitude, Longitude"
+float messageCore[messCoreLenght] = {};  //The actual data in a float array. It has an specific order.
+
+//Current order: Temperature, Humidity, Gyro X, Gyro Y, Gyro Z
+float messageSecundary[mess2Lenght] = {};  //The actual data in a float array. It has an specific order
 
 std::map<String, float> currentData;  // The last recorded data
 /*
@@ -53,11 +58,12 @@ std::map<String, float> currentData;  // The last recorded data
 */
 
 //Global variables that might be useful here and there.
-int sampleDelay = 200;                                                                                //Fixed sampling delay for the whole system (in ms)
+int sampleDelay = 500;                                                                                //Fixed sampling delay for the whole system (in ms)
 long lastTime = millis();                                                                             //Current time since boot up. Manages the dynamic delay
 long cycleNumber = 0;                                                                                 //Cycle number counter. Works as an ID for each data package
 bool continuityPyros[10] = { false, false, false, false, false, false, false, false, false, false };  //Array with the continuity data of the pyrochannels
 float powderChambTemp[4] = {};                                                                        // Array with temperature data from the LM35
+
 
 //KalmanFilter variables
 const int x_dim = 3;
@@ -84,18 +90,21 @@ bool trustKalman = false;
 
 
 //Simulation variables
-const bool IS_SIMULATION = true;  //This variable allows for software on a loop integration
-const bool VERBOSE = true;        //This variable allows for explicit printing of stage change and other flight events for debugging
-int simDataColumnNumber = 0;      //Number of columns in the CSV simulation data file
-float baroStdDev = 20.0f;         // Expected noise of the barometer sensor
-float accelStdDev = 10.0f;        //Expected noise of the accelerometer sensor
+const bool IS_SIMULATION = false;  //This variable allows for software on a loop integration
+const bool VERBOSE = true;         //This variable allows for explicit printing of stage change and other flight events for debugging
+int simDataColumnNumber = 0;       //Number of columns in the CSV simulation data file
+float baroStdDev = 20.0f;          // Expected noise of the barometer sensor
+float accelStdDev = 10.0f;         //Expected noise of the accelerometer sensor
+
+//Flight managment variables
+bool groundConfirmation = false;
+uint32_t sleepinterval = 30000; //Timer to 30 seconds
 
 
 //Declare managers:
 PyroController pyro;
 GPSController gps;
-MemoryManager sd;
-MemoryManager flash;
+MemoryManager mem;
 SensorManager sens;
 LoRaComm lora;
 MerweScaledSigmaPoints sigmaPoints(x_dim, alpha, beta, kappa);
@@ -115,14 +124,12 @@ void setup() {
 void loop() {
   //Outside the switch structure is everything that runs in every single iteration no matter the rocket stage
   dynamicDelay();
-  pyro.readBayTempAll(powderChambTemp);
+  //pyro.readBayTempAll(powderChambTemp);
   switch (currentStage) {
     case STARTUP:
       startUpInit();
       gps.updateGPS();
       checkCommand();
-      //lora.transmitData(messageCore, messCoreLenght, 0x00);
-      sd.logData(messageCore, messCoreLenght, sd.dataFileName);
       startupTermination();
       break;
     case IDLE:
@@ -133,7 +140,9 @@ void loop() {
       sample();
       parseData();
       serialPrintMessage();
-      sd.logData(messageCore, messCoreLenght, sd.dataFileName);
+      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+      mem.logBoolData(continuityPyros, currentData["time"], 10, mem.pyroFileName);
+      transmitDataDelayed();
       idleTermination();
       break;
 
@@ -145,7 +154,7 @@ void loop() {
       sample();
       parseData();
       serialPrintMessage();
-      sd.logData(messageCore, messCoreLenght, sd.dataFileName);
+      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
       boostTermination();
       break;
 
@@ -158,7 +167,7 @@ void loop() {
       sample();
       parseData();
       serialPrintMessage();
-      sd.logData(messageCore, messCoreLenght, sd.dataFileName);
+      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
       coastTermination();
       break;
 
@@ -171,7 +180,7 @@ void loop() {
       sample();
       parseData();
       serialPrintMessage();
-      sd.logData(messageCore, messCoreLenght, sd.dataFileName);
+      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
       drogueTermination();
       break;
 
@@ -183,7 +192,7 @@ void loop() {
       sample();
       parseData();
       serialPrintMessage();
-      sd.logData(messageCore, messCoreLenght, sd.dataFileName);
+      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
       mainDescentTermination();
       break;
 
@@ -191,7 +200,7 @@ void loop() {
       parseData();
       serialPrintMessage();
       sample();
-      sd.logData(messageCore, messCoreLenght, sd.dataFileName);
+      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
       touchDownInit();
       break;
 
@@ -209,14 +218,15 @@ void serialPrintMessage() {
     Serial.print(", ");
   }
   Serial.print("\t");
-  /*   for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 10; i++) {
     Serial.print(continuityPyros[i]);
     Serial.print(", ");
   }
-  for (int i = 0; i < 4; i++) {
+  Serial.print("\t");
+  /*   for (int i = 0; i < 4; i++) {
     Serial.print(powderChambTemp[i], 0);
     Serial.print(", ");
-  }*/
+  } */
   for (int i = 0; i < x_dim; i++) {
     Serial.print(kalmanState(i), 1);
     Serial.print(", ");
@@ -229,10 +239,13 @@ void serialPrintMessage() {
 */
 void sample() {
   static float prevSampleTime = 0.0f;
+  gps.updateGPS();
+  pyro.checkContinuityAll(continuityPyros);
+
   if (IS_SIMULATION) {
     currentData["intTime"] = 0;
     while (currentData["intTime"] < (sampleDelay / 1000.)) {  //This while loop is so we can manage slowed-reading rates for KF performance and still have a high resolution data file
-      if (sd.readSimulatedData(currentData)) {
+      if (mem.readSimulatedData(currentData)) {
         //Les agregamos ruido gausiano de media 0 a las dos mediciones que podemos tomar
         currentData["alt"] = addGaussianNoise(currentData["realAlt"], 0, baroStdDev);
         currentData["linAccData1"] = addGaussianNoise(currentData["realAccData1"], 0, accelStdDev);
@@ -244,7 +257,7 @@ void sample() {
         realData[1] = currentData["realAlt"];
         realData[2] = currentData["rawVel"];
         realData[3] = currentData["realAccData1"];
-        sd.logData(realData, x_dim + 1, sd.kfRealFileName);
+        mem.logFloatData(realData, x_dim + 1, mem.kfRealFileName);
       } else {
         if (VERBOSE) {
           Serial.println("Error pulling info from simulation");
@@ -263,7 +276,7 @@ void sample() {
     realData[1] = currentData["alt"];
     realData[2] = 0.0;
     realData[3] = currentData["linAccData2"];
-    sd.logData(realData, x_dim, sd.kfRealFileName);
+    mem.logFloatData(realData, x_dim, mem.kfRealFileName);
   }
   prevSampleTime = currentData["time"];
 }
@@ -302,7 +315,7 @@ void KFStep() {
   z(1) = currentData["linAccData1"];
   //3
   kf.predict(currentData["intTime"]);
-  //4update(z)
+  //4 Update
 
   kf.update(z);
   //5
@@ -334,10 +347,10 @@ void KFStep() {
   float outputData[] = { currentData["time"], kalmanState(0), kalmanState(1), kalmanState(2) };
 
 
-  sd.logData(performanceData, performanceSize, sd.kfPerformanceFileName);
-  sd.logData(configData, 2, sd.kfConfigFileName);          //The 2 here is really hard coded NEEDS change
-  sd.logData(outputData, x_dim + 1, sd.kfOutputFileName);  //+1 counting for time
-  sd.logData(measuData, x_dim, sd.kfMeasuFileName);
+  mem.logFloatData(performanceData, performanceSize, mem.kfPerformanceFileName);
+  mem.logFloatData(configData, 2, mem.kfConfigFileName);          //The 2 here is really hard coded NEEDS change
+  mem.logFloatData(outputData, x_dim + 1, mem.kfOutputFileName);  //+1 counting for time
+  mem.logFloatData(measuData, x_dim, mem.kfMeasuFileName);
 
   kfIteration++;
 }
@@ -365,7 +378,7 @@ VectorXf hx(const VectorXf& x) {
 
 void messageAppend(float info, bool reset = false) {
   /* 
-    Enables the parsing algorithm to be easier to change the other way easier 
+    Enables the parsing algorithm to be easier to change.
   */
   static int messCounter = 0;
   if (reset) messCounter = 0;  //allows to reset the index
@@ -383,11 +396,10 @@ void parseData() {
   }
   if (IS_SIMULATION) {
     messageAppend(currentData["iter"], true);
-    messageAppend(currentData["time"]);
   } else {
     messageAppend(cycleNumber, true);
-    messageAppend(millis() / 1000.0);
   }
+  messageAppend(currentData["time"]);
   messageAppend(currentData["accData0"]);
   messageAppend(currentData["accData1"]);
   messageAppend(currentData["accData2"]);
@@ -398,6 +410,9 @@ void parseData() {
   messageAppend(currentData["euler2"]);
   messageAppend(currentData["maxAlt"]);
   messageAppend((float)currentStage);
+  messageAppend(gps.getFixes());
+  messageAppend(gps.getLatitude());
+  messageAppend(gps.getLongitude());
 }
 
 void dynamicDelay() {
@@ -472,28 +487,26 @@ void startUpInit() {
         delay(1000);
       }
     }
-    if (!sd.begin(CS_SD)) {  //s for SDcard
-      while (1) {
-        if (VERBOSE) {
-          Serial.println("COULDN'T REACH SD CARD");
-        }
-        delay(1000);
-      }
-    }
-    /*     if (!flash.begin(CS_FLASH)) {  //f for flash
-      while (1) {
-        if (VERBOSE) {
-          Serial.println("FLASH NOT FOUND");
-        }
-        delay(1000);
-      }
-    } */
+    /*
+      Setup sensor modes:
+      Low barometer for the 0 height reference pressure
+    */
+    sens.setBaroMode(LOW_RATE);
+    sens.setIMUMode(IMUONLY_NDOF);
     if (IS_SIMULATION) {  //Initialize simulation if we are running one
       randomSeed(2);
+      if (!mem.begin(CS_SD)) {
+        while (1) {
+          if (VERBOSE) {
+            Serial.println("COULDN'T REACH SD CARD");
+          }
+          delay(1000);
+        }
+      }
       if (VERBOSE) {
         Serial.println("This is a simulation");
       }
-      simDataColumnNumber = sd.startSimulationData();
+      simDataColumnNumber = mem.startSimulationData();
       if (simDataColumnNumber == 0) {
         if (VERBOSE) {
           Serial.println("Simulation file not found");
@@ -509,18 +522,21 @@ void startUpInit() {
         }
       }
     } else {
+      if (!mem.begin(CS_FLASH)) {
+        while (1) {
+          if (VERBOSE) {
+            Serial.println("FLASH NOT FOUND");
+          }
+          delay(1000);
+        }
+      }
+      lora.transmitString("Taking reference pressure");
       sens.setReferencePressure();
     }
     pyro.begin();
     if (VERBOSE) {
       Serial.println("All systems initialized");
     }
-    /*
-      Setup sensor modes:
-      Low barometer for the 0 height reference pressure
-    */
-    sens.setBaroMode(LOW_RATE);
-    sens.setIMUMode(IMUONLY_NDOF);
 
     /*If we are manually calibrating the device we want to save new calibration parameters.
       If we don't make the manual calibration then the saved calibration parameters of the last calibration will be used
@@ -533,6 +549,7 @@ void startUpInit() {
       }
       Serial.print("Shake and move the device: ");
     }
+    sampleDelay = 2000;
     //So we dont re-initialize it:
     startupInitializer = false;
   }
@@ -546,12 +563,19 @@ void startupTermination() {
     * 500 pressure samples where taken    
     * is a simulation
   */
-
-  if (gps.getFixes() >= 4 || IS_SIMULATION) {
-    if (VERBOSE) {
-      Serial.println("Start up terminated");
+  if (groundConfirmation) {
+    if ((gps.getFixes() >= 4 && groundConfirmation) || IS_SIMULATION) {
+      if (VERBOSE) {
+        Serial.println("Start up terminated");
+      }
+      currentStage = IDLE;  //Move to the next stage (Idle, naturally)
+    } else {
+      String mess = "Waiting enough gps fixes: " + String(gps.getFixes()) + " currently";
+      lora.transmitString(mess);
+      delay(1000);
     }
-    currentStage = IDLE;  //Move to the next stage (Idle, naturally)
+  } else {
+    lora.transmitString("Waiting for ground confirmation");
   }
 }
 
@@ -559,6 +583,9 @@ void idleInit() {
   //Set sensor characteristics for IDLEING
   static bool idleInitializer = true;
   if (idleInitializer) {
+    sampleDelay = 500;
+    digitalWrite(RLED, LOW);
+
     if (VERBOSE) {
       Serial.println("Idle mode initialized");
     }
@@ -568,8 +595,10 @@ void idleInit() {
     */
     sens.setBaroMode(LOW_RATE);
     sens.setIMUMode(HIGH_RATE);
-    sens.imu.setMode(OPERATION_MODE_AMG);  //No-fusion mode
+    sens.imu.setMode(OPERATION_MODE_AMG);  //No-fusion mode */
 
+    lora.setToSleep();
+    sens.putToSleep();
     idleInitializer = false;
   }
 }
@@ -577,7 +606,7 @@ void idleInit() {
 void idleTermination() {
   /*Check for stage finalization condition:
     * Acceleration along the z axis is higer than 5g
-    TODO: DO NOT USE z acceleration but net acceleration
+    TODO: DO NOT USE z acceleration but net acceleration (can't be done because max g's on fusion mode is 4g's) and higher altitude.
   */
   if (currentData["accData1"] - 9.81 > (9.81 * 2)) {  //we passed the net 2g threshold
     if (VERBOSE) {
@@ -767,16 +796,11 @@ void touchDownInit() {
     if (VERBOSE) {
       Serial.println("Touch down");
     }
-    writeToSD();
     sens.setBaroMode(MID_RATE);
     sens.setIMUMode(HIGH_RATE);
     sens.imu.setMode(OPERATION_MODE_AMG);
     touchDownInit = false;
   }
-}
-
-
-void writeToSD() {
 }
 
 /*
@@ -786,26 +810,36 @@ void writeToSD() {
 void checkCommand() {
   lora.checkReceive();
   byte command = lora.lastCommand;
-  if (command == 0x03) {
-    //Comando de enviar datos de GPS
+  if (command == 0x01) {
+    groundConfirmation = true;
     if (VERBOSE) {
-      Serial.println("I'll send GPS DATA");
+      Serial.println("Ground confirmed flight readiness");
     }
     lora.lastCommand = 0x00;
-    gps.updateGPS();
-    lora.transmitGPS(gps.getFixes(), gps.getLatitude(), gps.getLongitude());
   } else if (command == 0x04) {
-    //Comando de enviar datos de canales pirotécnicos
+    mem.deleteFiles();
+    //Comando de eliminar archivos en memoria
     if (VERBOSE) {
-      Serial.println("I'll send Pyro data");
+      Serial.println("Elimando archivos");
     }
-    pyro.checkContinuityAll(continuityPyros);
-    lora.transmitPyroInfo(continuityPyros);
     lora.lastCommand = 0x00;
   } else if (command == 0x05) {
     if (VERBOSE) {
       Serial.println("I'll send chamber data");
     }
     lora.lastCommand = 0x00;
+  } else if (command == 0x06) {
+    if (VERBOSE) {
+      Serial.println("Turning cameras on...");
+    }
+    lora.lastCommand = 0x00;
+  }
+}
+
+void transmitDataDelayed() {
+  static long lastTransmit = 0;
+  if ((millis() - lastTransmit) > 0) {
+    lora.transmitData(messageCore, messCoreLenght);
+    lastTransmit = millis();
   }
 }

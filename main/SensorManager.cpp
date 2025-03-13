@@ -52,7 +52,7 @@ void SensorManager::readSensors(std::map<String, float> &dataDict) {
   dataDict["linAccData1"] = linAccData[1];
   dataDict["linAccData2"] = linAccData[2];
 
-  dataDict["time"] = millis();
+  dataDict["time"] = millis() / 1000.0;
 
   //imu::Vector<3> magData = mu.getVector(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
   //imu::Vector<3> gravityData = imu.getVector(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
@@ -63,13 +63,19 @@ void SensorManager::readSensors(std::map<String, float> &dataDict) {
 
 void SensorManager::setReferencePressure() {
   refPressure = 0;
+  Serial.println("Taking reference pressure...");
+
+
   for (int i = 0; i < 50; i++) {
-    //Update the pressure with the mean equation
-    refPressure = (i * refPressure + (baro.readPressure() / 100.0F)) / (i + 1);
+    refPressure += baro.readPressure() / 100.0F;  // Accumulate readings
+    delay(100);
   }
-  Serial.println(refPressure);
+
+  refPressure /= 50.0;  // Compute mean after loop
+
   Serial.println("Reference pressure taken");
 }
+
 
 void SensorManager::setBaroMode(ODR_MODES mode) {
   if (mode == LOW_RATE) {
@@ -137,71 +143,79 @@ bool SensorManager::setIMUMode(ODR_MODES mode) {
 }
 
 bool SensorManager::saveCalibration() {
-    sensors_event_t event;
-    imu.getEvent(&event);
+  sensors_event_t event;
+  imu.getEvent(&event);
 
-    uint8_t sysCalib, gyroCalib, accelCalib, magCalib;
-    imu.getCalibration(&sysCalib, &gyroCalib, &accelCalib, &magCalib);
+  uint8_t sysCalib, gyroCalib, accelCalib, magCalib;
+  imu.getCalibration(&sysCalib, &gyroCalib, &accelCalib, &magCalib);
 
-    // Wait for full calibration
-    if (sysCalib == 3 && gyroCalib == 3 && accelCalib == 3 && magCalib == 3) {
-        if (imu.getSensorOffsets(offsets)) {
-            Serial.println("Calibration saved!");
+  // Wait for full calibration
+  if (sysCalib == 3 && gyroCalib == 3 && accelCalib == 3 && magCalib == 3) {
+    if (imu.getSensorOffsets(offsets)) {
+      Serial.println("Calibration saved!");
 
-            // Step 1: Store offsets in EEPROM
-            for (int i = 0; i < 22; i++) {
-                EEPROM.update(EEPROM_OFFSET_ADDR + i, offsets[i]);  // Use update() to prevent unnecessary writes
-            }
+      // Step 1: Store offsets in EEPROM
+      for (int i = 0; i < 22; i++) {
+        EEPROM.update(EEPROM_OFFSET_ADDR + i, offsets[i]);  // Use update() to prevent unnecessary writes
+      }
 
-            // Step 2: Store a flag indicating valid calibration data
-            EEPROM.update(EEPROM_FLAG_ADDR, 1);
-            calibrationSaved = true;
-            return true;
-        } else {
-            Serial.println("Failed to get sensor offsets.");
-            return false;
-        }
+      // Step 2: Store a flag indicating valid calibration data
+      EEPROM.update(EEPROM_FLAG_ADDR, 1);
+      calibrationSaved = true;
+      return true;
     } else {
-        Serial.println("Sensor not fully calibrated yet.");
-        return false;
+      Serial.println("Failed to get sensor offsets.");
+      return false;
     }
+  } else {
+    Serial.println("Sensor not fully calibrated yet.");
+    return false;
+  }
 }
 
 void SensorManager::restoreCalibration() {
-    // Step 1: Check if EEPROM contains valid calibration data
-    if (EEPROM.read(EEPROM_FLAG_ADDR) != 1) {
-        Serial.println("No valid calibration data found in EEPROM!");
-        return;
-    }
+  // Step 1: Check if EEPROM contains valid calibration data
+  if (EEPROM.read(EEPROM_FLAG_ADDR) != 1) {
+    Serial.println("No valid calibration data found in EEPROM!");
+    return;
+  }
 
-    // Step 2: Read stored calibration data from EEPROM
-    for (int i = 0; i < 22; i++) {
-        offsets[i] = EEPROM.read(EEPROM_OFFSET_ADDR + i);
-    }
+  // Step 2: Read stored calibration data from EEPROM
+  for (int i = 0; i < 22; i++) {
+    offsets[i] = EEPROM.read(EEPROM_OFFSET_ADDR + i);
+  }
 
-    // Step 3: Switch to CONFIG_MODE
-    imu.setMode(OPERATION_MODE_CONFIG);
-    delay(25);
+  // Step 3: Switch to CONFIG_MODE
+  imu.setMode(OPERATION_MODE_CONFIG);
+  delay(25);
 
-    // Step 4: Restore calibration offsets
-    imu.setSensorOffsets(offsets);
-    //Serial.println("Calibration restored successfully!");
+  // Step 4: Restore calibration offsets
+  imu.setSensorOffsets(offsets);
+  //Serial.println("Calibration restored successfully!");
 
-    // Step 5: Switch back to Fusion Mode (e.g., NDOF)
-    imu.setMode(OPERATION_MODE_NDOF);
-    delay(25);
+  // Step 5: Switch back to Fusion Mode (e.g., NDOF)
+  imu.setMode(OPERATION_MODE_NDOF);
+  delay(25);
 }
 
 void SensorManager::checkCalibrationStatus() {
-    uint8_t sysCalib, gyroCalib, accelCalib, magCalib;
-    imu.getCalibration(&sysCalib, &gyroCalib, &accelCalib, &magCalib);
+  uint8_t sysCalib, gyroCalib, accelCalib, magCalib;
+  imu.getCalibration(&sysCalib, &gyroCalib, &accelCalib, &magCalib);
 
-    Serial.print("Sys: ");
-    Serial.print(sysCalib);
-    Serial.print(" G: ");
-    Serial.print(gyroCalib);
-    Serial.print(" A: ");
-    Serial.print(accelCalib);
-    Serial.print(" M: ");
-    Serial.println(magCalib);
+  Serial.print("Sys: ");
+  Serial.print(sysCalib);
+  Serial.print(" G: ");
+  Serial.print(gyroCalib);
+  Serial.print(" A: ");
+  Serial.print(accelCalib);
+  Serial.print(" M: ");
+  Serial.println(magCalib);
+}
+
+void SensorManager::putToSleep() {
+  //imu.write8(Adafruit_BNO055::BNO055_PWR_MODE_ADDR, Adafruit_BNO055::POWER_MODE_SUSPEND);  // Modo de suspensión
+  //baro.write8(BME280_REGISTER_CONTROL, MODE_SLEEP);
+  Serial.println("Putting sensors to sleep");
+  imu.enterSuspendMode();
+  baro.setSampling(Adafruit_BME280::MODE_SLEEP);
 }

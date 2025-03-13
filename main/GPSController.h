@@ -13,7 +13,6 @@ class GPSController {
     int getFixes();
     float getLatitude();
     float getLongitude();
-    SFE_UBLOX_GPS myGPS;
   private:
     float latitude, longitude;
 };
