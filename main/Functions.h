@@ -59,6 +59,7 @@ extern SensorManager sens;
 extern LoRaComm lora;
 extern MerweScaledSigmaPoints sigmaPoints;
 extern KalmanFilter kf;
+extern File myFile;
 
 // Function declarations
 void serialPrintMessage();

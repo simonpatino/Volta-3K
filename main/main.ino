@@ -118,27 +118,37 @@ STAGES currentStage;  //The stages are handled using an enumerator in Constants.
 const bool manualCalibration = false;
 
 
-bool KEY;
+bool KEY = true;
 File myFile;
 const int chipSelect = 2;  // Adjust based on your setup
-//###########################
+//#####################################################
 
 
 
 void setup() {
   Serial.begin(9600);
   pinMode(RLED, OUTPUT);  //Cause why not
+  pinMode(BLED, OUTPUT);  //Cause why not
+  pinMode(GLED, OUTPUT);  //Cause why not
+
   currentStage = STARTUP;
+
+
+  Serial.println("********************************************");
+  Serial.println("* Write Something to Enter in WRITER MODE  *");
+  Serial.println("********************************************");
 
 
 
   //NORMAL OR WRITER MODE 
-  float STAR_TIME = millis();  
-  while ( millis() - STAR_TIME  < 0){
+  float STAR_TIME = 10.0f;  
+  while ( STAR_TIME*1000 - millis() > 0){
     if (Serial.available()){
-      KEY = false; 
+      KEY = false;
 
-
+    digitalWrite(RLED, HIGH);  // White color, why not
+    digitalWrite(BLED, HIGH);  // White color, why not
+    digitalWrite(GLED, HIGH);  // White color, why not
 
     Serial.println("██     ██ ██████  ██ ████████ ███████ ██████  ");
     Serial.println("██     ██ ██   ██ ██    ██    ██      ██   ██ ");
@@ -147,22 +157,22 @@ void setup() {
     Serial.println(" ███ ███  ██   ██ ██    ██    ███████ ██   ██ ");
 
 
-    Serial.println("***********************");
-    Serial.println("*    Wait a Second   *");
-    Serial.println("**********************");
+    Serial.println("**********************************************");
+    Serial.println("*++++++++++++ Wait a Few Seconds *************");
+    Serial.println("**********************************************");
 
+    delay(5000);
 
-
-    } else {
-      KEY = true;
-    }
+    break;
+    } 
+    
   }
 
 
 
 }
 
-    //###########################
+//#####################################################
 
     void loop() {
 
@@ -258,20 +268,46 @@ void setup() {
       } else {
 
         // CODE WRITER 
-       
+
+
+        Serial.println("");
         Serial.print("Initializing SD card...");
         if (!SD.begin(chipSelect)) {
           Serial.println("Initialization failed!");
           return;
         }
           Serial.println("Initialization done.");
+
+
+        Serial.println("***************************");
+        Serial.println("* Write 'R' for Volta.txt *");
+        Serial.println("* Write 'P' for pyro.txt *");
+        Serial.println("***************************");
+
+        while (Serial.available() > 0) {  // Clear any existing data
+        Serial.read();                    // Read and discard
+        }
+
+        while( Serial.available() == 0){
+          ;
+        }
           
         if (Serial.available() > 0) {
           char command = Serial.read();
           if (command == 'R') {
             sendFileContent("Volta.txt");
+
+            while (true){
+              ;             //Do Nothing Forever
+            }
+
           } else if (command == 'P') {
-            sendFileContent("pyro.txt");  
+            sendFileContent("pyro.txt");
+
+            while(true) {
+              ;             //Do nothing Forever 
+            }  
+
             }
         }
 
