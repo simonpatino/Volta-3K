@@ -13,9 +13,6 @@
 #include "MemoryManager.h"
 #include "GPSController.h"
 
-// Forward declarations
-
-
 // Global variable declarations (extern)
 extern const int messCoreLenght;
 extern const int mess2Lenght;
