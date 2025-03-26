@@ -117,6 +117,10 @@ STAGES currentStage;  //The stages are handled using an enumerator in Constants.
 
 const bool manualCalibration = false;
 
+
+bool KEY;
+File myFile;
+const int chipSelect = 2;  // Adjust based on your setup
 //###########################
 
 
@@ -125,97 +129,155 @@ void setup() {
   Serial.begin(9600);
   pinMode(RLED, OUTPUT);  //Cause why not
   currentStage = STARTUP;
-}
 
-//###########################
 
-void loop() {
-  //Outside the switch structure is everything that runs in every single iteration no matter the rocket stage
-  dynamicDelay();
-  //pyro.readBayTempAll(powderChambTemp);
-  switch (currentStage) {
-    case STARTUP:
-      startUpInit();
-      gps.updateGPS();
-      checkCommand();
-      startupTermination();
-      break;
-    case IDLE:
-      idleInit();
-      /*
-        More wanted actions here
-      */
-      sample();
-      parseData();
-      serialPrintMessage();
-      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
-      mem.logBoolData(continuityPyros, currentData["time"], 10, mem.pyroFileName);
-      transmitDataDelayed();
-      idleTermination();
-      break;
 
-    case BOOSTING:
-      boostInit();
-      /*
-      More Boosting actions here
-      */
-      sample();
-      parseData();
-      serialPrintMessage();
-      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
-      boostTermination();
-      break;
+  //NORMAL OR WRITER MODE 
+  float STAR_TIME = millis();  
+  while ( millis() - STAR_TIME  < 0){
+    if (Serial.available()){
+      KEY = false; 
 
-    case COASTING:
-      coastInit();
-      /*
-      More wanted actions here
-      */
-      KFStep();
-      sample();
-      parseData();
-      serialPrintMessage();
-      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
-      coastTermination();
-      break;
 
-    case DROGUEDESCENT:
-      drogueInit();
-      /*
-      More wanted actions here
-      */
-      //KFStep();
-      sample();
-      parseData();
-      serialPrintMessage();
-      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
-      drogueTermination();
-      break;
 
-    case MAINDESCENT:
-      mainDescentInit();
-      /*
-      More wanted actions here
-      */
-      sample();
-      parseData();
-      serialPrintMessage();
-      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
-      mainDescentTermination();
-      break;
+    Serial.println("██     ██ ██████  ██ ████████ ███████ ██████  ");
+    Serial.println("██     ██ ██   ██ ██    ██    ██      ██   ██ ");
+    Serial.println("██  █  ██ ██████  ██    ██    █████   ██████  ");
+    Serial.println("██ ███ ██ ██   ██ ██    ██    ██      ██   ██ ");
+    Serial.println(" ███ ███  ██   ██ ██    ██    ███████ ██   ██ ");
 
-    case TOUCHDOWN:
-      parseData();
-      serialPrintMessage();
-      sample();
-      mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
-      touchDownInit();
-      break;
 
-    // Add more cases as needed
-    default:
-      // Code to execute if none of the above cases match
-      break;
+    Serial.println("***********************");
+    Serial.println("*    Wait a Second   *");
+    Serial.println("**********************");
+
+
+
+    } else {
+      KEY = true;
+    }
   }
+
+
+
 }
+
+    //###########################
+
+    void loop() {
+
+      if (KEY){
+      //Outside the switch structure is everything that runs in every single iteration no matter the rocket stage
+      dynamicDelay();
+      //pyro.readBayTempAll(powderChambTemp);
+        switch (currentStage) {
+          case STARTUP:
+            startUpInit();
+            gps.updateGPS();
+            checkCommand();
+            startupTermination();
+            break;
+          case IDLE:
+            idleInit();
+            /*
+              More wanted actions here
+            */
+            sample();
+            parseData();
+            serialPrintMessage();
+            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+            mem.logBoolData(continuityPyros, currentData["time"], 10, mem.pyroFileName);
+            transmitDataDelayed();
+            idleTermination();
+            break;
+
+          case BOOSTING:
+            boostInit();
+            /*
+            More Boosting actions here
+            */
+            sample();
+            parseData();
+            serialPrintMessage();
+            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+            boostTermination();
+            break;
+
+          case COASTING:
+            coastInit();
+            /*
+            More wanted actions here
+            */
+            KFStep();
+            sample();
+            parseData();
+            serialPrintMessage();
+            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+            coastTermination();
+            break;
+
+          case DROGUEDESCENT:
+            drogueInit();
+            /*
+            More wanted actions here
+            */
+            //KFStep();
+            sample();
+            parseData();
+            serialPrintMessage();
+            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+            drogueTermination();
+            break;
+
+          case MAINDESCENT:
+            mainDescentInit();
+            /*
+            More wanted actions here
+            */
+            sample();
+            parseData();
+            serialPrintMessage();
+            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+            mainDescentTermination();
+            break;
+
+          case TOUCHDOWN:
+            parseData();
+            serialPrintMessage();
+            sample();
+            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+            touchDownInit();
+            break;
+
+          // Add more cases as needed
+          default:
+            // Code to execute if none of the above cases match
+            break;
+        }
+
+      } else {
+
+        // CODE WRITER 
+       
+        Serial.print("Initializing SD card...");
+        if (!SD.begin(chipSelect)) {
+          Serial.println("Initialization failed!");
+          return;
+        }
+          Serial.println("Initialization done.");
+          
+        if (Serial.available() > 0) {
+          char command = Serial.read();
+          if (command == 'R') {
+            sendFileContent("Volta.txt");
+          } else if (command == 'P') {
+            sendFileContent("pyro.txt");  
+            }
+        }
+
+      }
+
+/////////
+    }
+
 

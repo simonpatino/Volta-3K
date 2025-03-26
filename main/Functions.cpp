@@ -632,3 +632,17 @@ void transmitDataDelayed() {
     lastTransmit = millis();
   }
 }
+
+// For Writer Code 
+void sendFileContent(const char* filename) {
+  myFile = SD.open(filename);
+  if (myFile) {
+    while (myFile.available()) {
+      Serial.write(myFile.read());
+    }
+    myFile.close();
+  } else {
+    Serial.print("Error opening ");
+    Serial.println(filename);
+  }
+}
