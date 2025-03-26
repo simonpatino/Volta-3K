@@ -70,6 +70,7 @@ VectorXf hx(const VectorXf& x);
 void messageAppend(float info, bool reset = false);
 void parseData();
 void dynamicDelay();
+void sendFileContent(const char* filename);
 
 // Flight stage functions
 void startUpInit();
