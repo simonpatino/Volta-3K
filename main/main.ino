@@ -35,7 +35,6 @@ std::map<String, float> currentData;  // The last recorded data
   - time: current time
   - temp: sensed temperature by BME280
   - prss: sensed pressure by BME280
-  - realAlt: it is the "actual" altidude of the rocket, specifically used for simulation mode 
   - alt: the sensed (then noisy) altitude of the rocket given by the BME280
   - deltaAlt: difference between the last sensed alt and the current alt. Should not be used and maybe should be deleted.
   - humty: humidity
@@ -44,7 +43,6 @@ std::map<String, float> currentData;  // The last recorded data
   - angVelData2: Z-axis gryscope reading
   - accData0: X-axis acceleration reading
   - accData1: Y-axis acceleration reading
-  - realAccData2: Z-axis raw pull (with no noise) if running in simulation mode
   - accData2: Z-axis acceleration reading of the BNO055 (with noise)
     The next 6 variables can only be read if the BNO055 is set to be in Fusion Mode (using the built-in Kalman Filter)
   - euler0: X-axis rotation
@@ -53,6 +51,11 @@ std::map<String, float> currentData;  // The last recorded data
   - linAccData0: intertial-X-axis acceleration
   - linAccData1: intertial-Y-axis acceleration
   - linAccData2: intertial-Z-axis acceleration
+  - maxAlt: maximum altitude reached by the rocket
+  - stage: the current stage of the rocket
+  - sat: the number of the satelite that is being tracked by the GPS
+  - lat: latitude
+  - lon: longitude
 
   For simulation only:
   - rawVel: velocity reading from the simulation, used to verify KF performance
