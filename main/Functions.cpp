@@ -188,20 +188,57 @@ void parseData() {
   } else {
     messageAppend(cycleNumber, true);
   }
+
   messageAppend(currentData["time"]);
+  messageAppend(currentData["temp"]);
+  messageAppend(currentData["prss"]);
+  messageAppend(currentData["alt"]);
+  messageAppend(currentData["deltaAlt"]);
+  messageAppend(currentData["humty"]);
+  messageAppend(currentData["angVelData0"]);
+  messageAppend(currentData["angVelData1"]);
+  messageAppend(currentData["angVelData2"]);
   messageAppend(currentData["accData0"]);
   messageAppend(currentData["accData1"]);
   messageAppend(currentData["accData2"]);
-  messageAppend(currentData["alt"]);
-  messageAppend(currentData["prss"]);
   messageAppend(currentData["euler0"]);
   messageAppend(currentData["euler1"]);
   messageAppend(currentData["euler2"]);
+  messageAppend(currentData["linAccData0"]);
+  messageAppend(currentData["linAccData1"]);
+  messageAppend(currentData["linAccData2"]);
   messageAppend(currentData["maxAlt"]);
   messageAppend((float)currentStage);
   messageAppend(gps.getFixes());
   messageAppend(gps.getLatitude());
   messageAppend(gps.getLongitude());
+
+
+  // 1. iter - iteration counter
+  // 2. time - current time 
+  // 3. temp - temperature from BME280 sensor
+  // 4. prss - pressure from BME280 sensor 
+  // 5. alt - altitude from BME280 sensor
+  // 6. deltaAlt - change in altitude between readings
+  // 7. humty - humidity from BME280 sensor
+  // 8. angVelData0 - gyroscope X-axis angular velocity
+  // 9. angVelData1 - gyroscope Y-axis angular velocity
+  // 10. angVelData2 - gyroscope Z-axis angular velocity
+  // 11. accData0 - accelerometer X-axis acceleration
+  // 12. accData1 - accelerometer Y-axis acceleration
+  // 13. accData2 - accelerometer Z-axis acceleration
+  // 14. euler0 - X-axis rotation angle (fusion mode only)
+  // 15. euler1 - Y-axis rotation angle (fusion mode only)
+  // 16. euler2 - Z-axis rotation angle (fusion mode only)
+  // 17. linAccData0 - inertial X-axis acceleration (fusion mode only)
+  // 18. linAccData1 - inertial Y-axis acceleration (fusion mode only)
+  // 19. linAccData2 - inertial Z-axis acceleration (fusion mode only)
+  // 20. maxAlt - maximum altitude reached
+  // 21. stage - current flight stage number
+  // 22. sat - number of GPS satellites tracked
+  // 23. lat - GPS latitude
+  // 24. lon - GPS longitude
+
 }
 
 void dynamicDelay() {
@@ -353,13 +390,13 @@ void startupTermination() {
     * is a simulation
   */
   if (groundConfirmation) {
-    if ((gps.getFixes() >= 4 && groundConfirmation) || IS_SIMULATION) {
+    if ( groundConfirmation || IS_SIMULATION) {
       if (VERBOSE) {
         Serial.println("Start up terminated");
       }
       currentStage = IDLE;  //Move to the next stage (Idle, naturally)
     } else {
-      String mess = "Waiting enough gps fixes: " + String(gps.getFixes()) + " currently";
+      String mess = "Waiting enough gps fixes: " + String(gps.getFixes()) + " currently"; //change this to the number of fixes needed ())
       lora.transmitString(mess);
       delay(1000);
     }
@@ -590,6 +627,10 @@ void touchDownInit() {
     sens.imu.setMode(OPERATION_MODE_AMG);
     touchDownInit = false;
   }
+
+  // Turn Off cameras
+  digitalWrite(CAMERA_PIN, LOW);
+
 }
 
 /*
@@ -614,13 +655,21 @@ void checkCommand() {
     lora.lastCommand = 0x00;
   } else if (command == 0x05) {
     if (VERBOSE) {
-      Serial.println("I'll send chamber data");
+      Serial.println("Turning Cameras On");
     }
+
+    // Turn on the cameras
+    digitalWrite(CAMERA_PIN, HIGH);
+
     lora.lastCommand = 0x00;
   } else if (command == 0x06) {
     if (VERBOSE) {
-      Serial.println("Turning cameras on...");
+      Serial.println("Turning cameras Off...");
     }
+
+    // Turn off the cameras
+    digitalWrite(CAMERA_PIN, LOW);
+
     lora.lastCommand = 0x00;
   }
 }

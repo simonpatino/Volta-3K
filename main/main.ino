@@ -35,7 +35,7 @@ std::map<String, float> currentData;  // The last recorded data
   - time: current time
   - temp: sensed temperature by BME280
   - prss: sensed pressure by BME280
-  - realAlt: it is the "actual" altidude of the rocket, specifically used for simulation mode
+  - realAlt: it is the "actual" altidude of the rocket, specifically used for simulation mode 
   - alt: the sensed (then noisy) altitude of the rocket given by the BME280
   - deltaAlt: difference between the last sensed alt and the current alt. Should not be used and maybe should be deleted.
   - humty: humidity
@@ -192,12 +192,14 @@ void setup() {
             /*
               More wanted actions here
             */
+            checkCommand(); //check if there is a command to be executed
             sample();
             parseData();
-            serialPrintMessage();
+            //serialPrintMessage();
             mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
             mem.logBoolData(continuityPyros, currentData["time"], 10, mem.pyroFileName);
             transmitDataDelayed();
+
             idleTermination();
             break;
 
@@ -208,6 +210,7 @@ void setup() {
             */
             sample();
             parseData();
+            transmitDataDelayed();
             serialPrintMessage();
             mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
             boostTermination();
@@ -221,6 +224,7 @@ void setup() {
             KFStep();
             sample();
             parseData();
+            transmitDataDelayed();
             serialPrintMessage();
             mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
             coastTermination();
@@ -234,6 +238,7 @@ void setup() {
             //KFStep();
             sample();
             parseData();
+            transmitDataDelayed();
             serialPrintMessage();
             mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
             drogueTermination();
@@ -246,6 +251,7 @@ void setup() {
             */
             sample();
             parseData();
+            transmitDataDelayed();
             serialPrintMessage();
             mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
             mainDescentTermination();

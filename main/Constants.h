@@ -33,7 +33,7 @@
 
 
 //Right Side
-#define BOUT2 23
+#define CAMERA_PIN 23
 #define AOUT2 22
 #define P_CHK1A 21
 #define PYRO1_A 20
