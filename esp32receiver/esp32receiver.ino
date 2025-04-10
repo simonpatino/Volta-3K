@@ -17,7 +17,6 @@
 #define LORA_DIO0 26
 
 
-
 // onAwait: Tracks if we are waiting for operator command from terminal
 //          0x00 means waiting for command
 //          Other values indicate specific command states
@@ -70,7 +69,6 @@ void setup() {
   Serial.println("║     Ready to Receive Data!           ║");
   Serial.println("╚══════════════════════════════════════╝");
 }
-
 
 
 void loop() {
@@ -193,7 +191,8 @@ void loop() {
  * 0x01 - 's' - Send ground station confirmation | Allow enter the rocket to the next stage
  * 0x04 - 'p' - Request pyro channel status | Check if the pyro channels are working
  * 0x05 - 'c' - Request ejection chamber info | Check if the ejection chambers are working
- * 0x06 - 'v' - Activate camera system | Activate the camera system
+ * 0x06 - 'o' - Activate camera system 
+ * 0x07 - 'f' - Deactivate camera system 
  * 0x00 - Any other character or no input
  * 
  * @return byte Command code based on Serial input character
@@ -215,9 +214,13 @@ byte getCommand() {
         // Request temperature/status of ejection chambers
         return 0x05;
         
-      case 'v':
+      case 'o':
         // Activate onboard camera recording system
         return 0x06;
+
+      case 'f':
+        // Deactivate onboard camera recording system
+        return 0x07;
         
       default:
         // No valid command, return idle state

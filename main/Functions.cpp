@@ -655,14 +655,21 @@ void checkCommand() {
     lora.lastCommand = 0x00;
   } else if (command == 0x05) {
     if (VERBOSE) {
-      Serial.println("Turning Cameras On");
+      Serial.println("Pyro channels status requested");
+      // Not used in this version
+    }
+
+    lora.lastCommand = 0x00;
+  } else if (command == 0x06) {
+    if (VERBOSE) {
+      Serial.println("Turning cameras On...");
     }
 
     // Turn on the cameras
     digitalWrite(CAMERA_PIN, HIGH);
 
     lora.lastCommand = 0x00;
-  } else if (command == 0x06) {
+  } else if (command == 0x07) {
     if (VERBOSE) {
       Serial.println("Turning cameras Off...");
     }
