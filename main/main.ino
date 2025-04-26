@@ -189,6 +189,7 @@ void setup() {
             gps.updateGPS();
             checkCommand();
             startupTermination();
+            
             break;
           case IDLE:
             idleInit();
@@ -261,16 +262,22 @@ void setup() {
             break;
 
           case TOUCHDOWN:
-            parseData();
-            serialPrintMessage();
-            sample();
-            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+
             touchDownInit();
+            sample();
+            parseData();
+            transmitDataDelayed();
+            serialPrintMessage();
+            
+            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
             break;
 
           // Add more cases as needed
           default:
             // Code to execute if none of the above cases match
+
+            Serial.println("Unknown stage. Please check the code.");
+            
             break;
         }
 

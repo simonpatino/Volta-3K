@@ -423,8 +423,8 @@ void idleInit() {
     sens.setIMUMode(HIGH_RATE);
     sens.imu.setMode(OPERATION_MODE_AMG);  //No-fusion mode */
 
-    lora.setToSleep();
-    sens.putToSleep();
+    //lora.setToSleep();
+    //sens.putToSleep();
     idleInitializer = false;
   }
 }
@@ -638,47 +638,76 @@ void touchDownInit() {
   Esta funcion recive ese comando y lleva a cabo trasmisiones respectivas a cada comando
 */
 void checkCommand() {
-  lora.checkReceive();
+  lora.checkReceive(); // This should read the first byte into lora.lastCommand and potentially buffer the rest
   byte command = lora.lastCommand;
+  
   if (command == 0x01) {
     groundConfirmation = true;
     if (VERBOSE) {
       Serial.println("Ground confirmed flight readiness");
     }
-    lora.lastCommand = 0x00;
+        lora.lastCommand = 0x00;
   } else if (command == 0x04) {
-    mem.deleteFiles();
-    //Comando de eliminar archivos en memoria
+    // Request pyro continuity status
     if (VERBOSE) {
-      Serial.println("Elimando archivos");
+      Serial.println("Pyro continuity status requested by ground.");
     }
-    lora.lastCommand = 0x00;
+//    lora.transmitContinuity(continuityPyros); // Send continuity data
+    lora.lastCommand = 0x00; // Command handled
   } else if (command == 0x05) {
     if (VERBOSE) {
-      Serial.println("Pyro channels status requested");
-      // Not used in this version
+      Serial.println("Ejection chamber info requested (Not Implemented)");
+      // Placeholder: Send some status if implemented later
     }
-
-    lora.lastCommand = 0x00;
+        lora.lastCommand = 0x00;
   } else if (command == 0x06) {
     if (VERBOSE) {
       Serial.println("Turning cameras On...");
     }
-
     // Turn on the cameras
     digitalWrite(CAMERA_PIN, HIGH);
-
-    lora.lastCommand = 0x00;
+        lora.lastCommand = 0x00;
   } else if (command == 0x07) {
     if (VERBOSE) {
       Serial.println("Turning cameras Off...");
     }
-
     // Turn off the cameras
     digitalWrite(CAMERA_PIN, LOW);
+        lora.lastCommand = 0x00;
+  } else if (command == 0x08) {
+    // Command to change LoRa frequency
+    // Assumes lora.checkReceive() read the command byte (0x08)
+    // and LoRa.readString() reads the rest of the packet payload.
+    String freqStr = LoRa.readString(); // Read the frequency string payload
+    
+    if (freqStr.length() > 0) {
+        long newFrequency = atol(freqStr.c_str()); // Convert string to long
 
-    lora.lastCommand = 0x00;
-  }
+        if (VERBOSE) {
+            Serial.print("Received frequency change command. Attempting to set frequency to: ");
+            Serial.println(newFrequency);
+        }
+        
+        // Attempt to set the frequency using the LoraHandler method
+          
+
+        LoRa.setFrequency(newFrequency); 
+
+        if (VERBOSE) {
+            // Log that the attempt was made. We can't confirm success directly from the return value.
+            Serial.println("Frequency set command executed."); 
+        }
+        
+        lora.lastCommand = 0x00; // Clear command
+        
+        }
+
+        
+    } 
+    
+    
+  
+  // Note: No need to clear lora.lastCommand if command == 0x00 (no command received)
 }
 
 void transmitDataDelayed() {
