@@ -39,7 +39,7 @@ String frequencyStringToSend = "";
 
 void setup() {
   // Initialize Serial communication at 9600 baud rate
-  Serial.begin(9600);
+  Serial.begin(115200);
   // Wait for Serial connection to be established
   while (!Serial)
     ;
@@ -138,13 +138,37 @@ void loop() {
       while (LoRa.available()) {
         String received = LoRa.readString();
         Serial.print(received);
+        
       }
     } else if (dataID == 0x07) {
       // 0x07: Acknowledgment message from rocket
       // Indicates rocket received our last command
       Serial.print("Confirmation Received for command 0x");
       Serial.println(onAwait, HEX); // Print the command that was acknowledged
-      onAwait = 0x00; // Clear waiting state
+
+      // Check if the acknowledged command was the frequency change command
+      if (onAwait == CMD_SET_FREQUENCY && frequencyStringToSend.length() > 0) {
+        // Attempt to parse the frequency string to a long integer using atol for better range
+        long newFrequencyHz = atol(frequencyStringToSend.c_str()); 
+        
+        // Validate if the parsed frequency is within the allowed range (905 MHz to 930 MHz)
+        if (newFrequencyHz >= 905E6 && newFrequencyHz <= 930E6) { 
+            Serial.print("Attempting to change local frequency to: ");
+            Serial.print(frequencyStringToSend);
+            Serial.println(" Hz");
+            // Call setFrequency directly without checking the return value
+            LoRa.setFrequency(newFrequencyHz);
+            // Assume the change was initiated, cannot confirm success via return value
+            Serial.println("Local LoRa frequency change initiated.");
+        } else {
+            Serial.print("Error: Requested frequency ");
+            Serial.print(frequencyStringToSend);
+            Serial.println(" Hz is outside the allowed range (905-930 MHz).");
+            Serial.println("Local frequency NOT changed.");
+        }
+      }
+
+      onAwait = 0x00; // Clear waiting state regardless of which command was acknowledged
       frequencyStringToSend = ""; // Clear frequency string storage
     } else if (dataID == 0x04) {
       // 0x04: Pyro channel continuity status
@@ -180,30 +204,48 @@ void loop() {
     if (Serial.available() > 0) {
       String freqStr = Serial.readStringUntil('\n');
       freqStr.trim(); // Remove potential whitespace/newlines
-      // Basic validation: check if it's a non-empty string (more robust validation can be added)
-      if (freqStr.length() > 0) { 
-        frequencyStringToSend = freqStr; // Store for potential retransmission
-        Serial.print("Attempting to send frequency change command for: ");
-        Serial.print(frequencyStringToSend);
-        Serial.println(" Hz");
-        onAwait = CMD_SET_FREQUENCY; // Set state to send the frequency command
 
-        // Send the first packet immediately
-        LoRa.beginPacket();
-        LoRa.write(onAwait); // Write command code 0x08
-        LoRa.print(frequencyStringToSend); // Write frequency as string
-        LoRa.endPacket();
-        Serial.println("Command sent.");
-        lastTransmit = millis(); // Start timer for potential retransmissions
+      // Validate the frequency string *before* sending anything
+      if (freqStr.length() > 0) {
+        long requestedFrequencyHz = atol(freqStr.c_str()); // Attempt to parse
+
+        // Check if frequency is within the valid range
+        if (requestedFrequencyHz >= 905E6 && requestedFrequencyHz <= 930E6) {
+          // Frequency is valid, proceed to send the command
+          frequencyStringToSend = freqStr; // Store for potential retransmission and local change later
+          Serial.print("Frequency ");
+          Serial.print(frequencyStringToSend);
+          Serial.println(" Hz is valid. Attempting to send frequency change command.");
+          
+          onAwait = CMD_SET_FREQUENCY; // Set state to send the frequency command
+
+          // Send the first packet immediately
+          LoRa.beginPacket();
+          LoRa.write(onAwait); // Write command code 0x08
+          LoRa.print(frequencyStringToSend); // Write frequency as string
+          LoRa.endPacket();
+          Serial.println("Command sent.");
+          lastTransmit = millis(); // Start timer for potential retransmissions
+        } else {
+          // Frequency is outside the allowed range
+          Serial.print("Error: Requested frequency ");
+          Serial.print(freqStr);
+          Serial.println(" Hz is outside the allowed range (905-930 MHz).");
+          Serial.println("Command NOT sent. Please try again.");
+          onAwait = 0x00; // Reset state, wait for new command
+          frequencyStringToSend = ""; // Clear stored frequency
+        }
       } else {
+        // Input string was empty or invalid for parsing
         Serial.println("Invalid frequency entered. Please enter frequency in Hz (e.g., 915000000).");
         onAwait = 0x00; // Reset state, wait for new command
-        frequencyStringToSend = "";
+        frequencyStringToSend = ""; // Clear stored frequency
       }
     }
   } else if (onAwait != 0x00) {
-    // If we are in the process of sending a command and haven't received acknowledgment,
-    // continuously retry sending the command every insistDelay milliseconds until acknowledged
+    // If we are in the process of sending a command (which is now guaranteed to be valid) 
+    // and haven't received acknowledgment, continuously retry sending the command 
+    // every insistDelay milliseconds until acknowledged
     if (int(millis() - lastTransmit) > insistDelay) {
       // Begin LoRa packet transmission
       LoRa.beginPacket();

@@ -390,7 +390,7 @@ void startupTermination() {
     * is a simulation
   */
   if (groundConfirmation) {
-    if ( groundConfirmation || IS_SIMULATION) {
+    if (IS_SIMULATION) {
       if (VERBOSE) {
         Serial.println("Start up terminated");
       }
@@ -690,7 +690,6 @@ void checkCommand() {
         
         // Attempt to set the frequency using the LoraHandler method
           
-
         LoRa.setFrequency(newFrequency); 
 
         if (VERBOSE) {
@@ -706,8 +705,6 @@ void checkCommand() {
     } 
     
     
-  
-  // Note: No need to clear lora.lastCommand if command == 0x00 (no command received)
 }
 
 void transmitDataDelayed() {
