@@ -186,32 +186,34 @@ void parseData() {
   if (IS_SIMULATION) {
     messageAppend(currentData["iter"], true);
   } else {
-    messageAppend(cycleNumber, true);
+    // Do nothing
   }
-
-  messageAppend(currentData["time"]);
-  messageAppend(currentData["temp"]);
-  messageAppend(currentData["prss"]);
-  messageAppend(currentData["alt"]);
-  messageAppend(currentData["deltaAlt"]);
-  messageAppend(currentData["humty"]);
-  messageAppend(currentData["angVelData0"]);
-  messageAppend(currentData["angVelData1"]);
-  messageAppend(currentData["angVelData2"]);
-  messageAppend(currentData["accData0"]);
-  messageAppend(currentData["accData1"]);
-  messageAppend(currentData["accData2"]);
-  messageAppend(currentData["euler0"]);
-  messageAppend(currentData["euler1"]);
-  messageAppend(currentData["euler2"]);
   messageAppend(currentData["linAccData0"]);
   messageAppend(currentData["linAccData1"]);
   messageAppend(currentData["linAccData2"]);
-  messageAppend(currentData["maxAlt"]);
-  messageAppend((float)currentStage);
-  messageAppend(gps.getFixes());
+  messageAppend(currentData["euler0"]);
+  messageAppend(currentData["euler1"]);
+  messageAppend(currentData["euler2"]);
+  messageAppend(currentData["alt"]);
   messageAppend(gps.getLatitude());
   messageAppend(gps.getLongitude());
+  messageAppend(currentData["rawVel"]);
+  messageAppend((float)currentStage);
+  messageAppend(cycleNumber, true);
+
+  //messageAppend(currentData["time"]);
+  //messageAppend(currentData["temp"]);
+  // messageAppend(currentData["accData0"]);
+  // messageAppend(currentData["accData1"]);
+  // messageAppend(currentData["accData2"]);
+  // messageAppend(currentData["prss"]);
+  // messageAppend(currentData["deltaAlt"]);
+  // messageAppend(currentData["humty"]);
+  // messageAppend(currentData["maxAlt"]);
+  // messageAppend(gps.getFixes());
+  // messageAppend(currentData["angVelData0"]);
+  // messageAppend(currentData["angVelData1"]);
+  // messageAppend(currentData["angVelData2"]);
 
 
   // 1. iter - iteration counter
