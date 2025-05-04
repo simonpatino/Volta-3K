@@ -370,10 +370,14 @@ void startUpInit() {
       If we don't make the manual calibration then the saved calibration parameters of the last calibration will be used
       It is recomended to make a manual calibration in every new integration step or change in the surroundings of the flight computer
     */
+
+
     if (manualCalibration) {
       while (!sens.saveCalibration()) {
         sens.checkCalibrationStatus();
         delay(500);
+        Serial.print("Shake and move the device: ");
+   
       }
       Serial.print("Shake and move the device: ");
     }
@@ -392,9 +396,10 @@ void startupTermination() {
     * is a simulation
   */
   if (groundConfirmation) {
-    if (IS_SIMULATION) {
+    if ( groundConfirmation || IS_SIMULATION) {
+      //
       if (VERBOSE) {
-        Serial.println("Start up terminated");
+        Serial.println("Startup phase complete - all systems ready for flight");
       }
       currentStage = IDLE;  //Move to the next stage (Idle, naturally)
     } else {

@@ -129,14 +129,14 @@ const int chipSelect = 2;  // Adjust based on your setup
 
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(RLED, OUTPUT);  //Cause why not
   pinMode(BLED, OUTPUT);  //Cause why not
   pinMode(GLED, OUTPUT);  //Cause why not
 
   currentStage = STARTUP;
 
-
+  Serial.print("lol");
   Serial.println("********************************************");
   Serial.println("* Write Something to Enter in WRITER MODE  *");
   Serial.println("********************************************");
@@ -179,13 +179,18 @@ void setup() {
 
     void loop() {
 
+      Serial.print("sadgasdfasfdasdasdfasdfasf");
+
       if (KEY){
       //Outside the switch structure is everything that runs in every single iteration no matter the rocket stage
       dynamicDelay();
       //pyro.readBayTempAll(powderChambTemp);
         switch (currentStage) {
           case STARTUP:
+                Serial.print("sadgasdfasfdasdasdfasdfasf");
+
             startUpInit();
+
             gps.updateGPS();
             checkCommand();
             startupTermination();
@@ -193,9 +198,7 @@ void setup() {
             break;
           case IDLE:
             idleInit();
-            /*
-              More wanted actions here
-            */
+            
             checkCommand(); //check if there is a command to be executed
             sample();
             parseData();

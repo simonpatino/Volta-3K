@@ -18,19 +18,39 @@ bool GPSController::begin() {
 }
 
 
-bool GPSController::updateGPS() {
-  /*
-    * If it ain't broke don't try to fix it
-  */
-  myGPS.checkUblox();
-  if (myGPS.getSIV() > 4) {
+bool GPSController::updateGPS(bool verbose = true) { // Default verbose to true
+  // Serial.println("GPSController: Checking Ublox module..."); // Removed as requested
+
+  myGPS.checkUblox(); // Check for new data from the module
+
+  int satellites = myGPS.getSIV(); // Get number of satellites in view
+  if (verbose) {
+    Serial.print("GPSController: Satellites in view: "); // Debug: Report satellites found
+    Serial.println(satellites);
+  }
+
+  if (satellites >= 3) {
     latitude = myGPS.getLatitude() / 1000000.0;
     longitude = myGPS.getLongitude() / 1000000.0;
-    return 1;
+    if (verbose) {
+      Serial.print("GPSController: GPS Fix obtained. Satellites: "); // Debug: Fix obtained
+      Serial.print(satellites);
+      Serial.print(" Lat: ");
+      Serial.print(latitude, 6);
+      Serial.print(" Lon: ");
+      Serial.println(longitude, 6);
+    }
+    return true; // Indicate successful update with fix
   } else {
-    Serial.print("No Fix, Num satellites: ");
-    Serial.println(myGPS.getSIV());
-    return 0;
+    // No fix or insufficient satellites
+    if (verbose) {
+      Serial.print("GPSController: No GPS Fix or insufficient satellites. Satellites found: "); // Debug: No fix, show satellite count
+      Serial.println(satellites);
+    }
+    // Optionally reset latitude/longitude or set to specific invalid values
+    // latitude = 0.0; 
+    // longitude = 0.0;
+    return false; // Indicate update failed or no fix
   }
 }
 

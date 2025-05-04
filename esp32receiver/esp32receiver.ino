@@ -245,7 +245,7 @@ void loop() {
         }
       } else {
         // Input string was empty or invalid for parsing
-        Serial.println("Invalid frequency entered. Please enter frequency in MHz (e.g., 915 or 920.5).");
+        Serial.println("Invalid frequency entered. Please enter frequency in MHz (905 - 930).");
         onAwait = 0x00; // Reset state, wait for new command
         frequencyStringToSend = ""; // Clear stored frequency
       }
@@ -327,7 +327,7 @@ byte getCommand() {
 
       case 'l':
         // Initiate LoRa frequency change
-        Serial.print("Enter new LoRa frequency in MHz (e.g., 915 or 920.5): "); // Updated prompt
+        Serial.print("Enter new LoRa frequency in MHz: "); // Updated prompt
         return AWAIT_FREQUENCY_INPUT; // Return special code to wait for frequency input in loop()
         
       default:
