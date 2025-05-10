@@ -30,8 +30,6 @@
 #define FLASH_SPI_MISO 12
 #define FLASH_SPI_SCK 13
 
-
-
 //Right Side
 #define CAMERA_PIN 23
 #define AOUT2 22
@@ -113,5 +111,8 @@ enum STAGES {
   MAINDESCENT  =  (0X05),
   TOUCHDOWN =  (0X06)
 };
+
+// Add new command ID for the 3-way handshake
+#define CMD_EXECUTE_FREQ_CHANGE 0x0A
 
 #endif

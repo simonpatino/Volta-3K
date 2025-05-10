@@ -32,12 +32,12 @@ void LoRaComm::transmitData(float dataList[], int length) {
   */
   if (LoRa.parsePacket()) return;
   String dataString = "";
-  for (int i = 0; i < length - 2; i++) {
+  for (int i = 0; i < length -2 ; i++) {
     dataString += String(dataList[i], 1) + ",";
   }
   //The last two values are the GPS coordinates
-  dataString += String(dataList[length - 2], 7) + ",";
-  dataString += String(dataList[length - 1], 7);
+  dataString += String(dataList[length - 2], 5) + ",";
+  dataString += String(dataList[length - 1], 5);
 
   LoRa.beginPacket();
   LoRa.write(coreDataID);

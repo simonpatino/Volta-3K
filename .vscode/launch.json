@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/saimonssd/Desktop/Volta-3K/main",
+      "program": "/Users/saimonssd/Desktop/Volta-3K/main/build/Debug/outDebug"
+    }
+  ]
+}

@@ -7,9 +7,10 @@
 
 class GPSController {
   public:
+    bool verbose;
     GPSController();
     bool begin();
-    bool updateGPS();
+    bool updateGPS(bool verbose = true);
     int getFixes();
     float getLatitude();
     float getLongitude();

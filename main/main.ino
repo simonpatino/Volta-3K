@@ -19,7 +19,7 @@
 #include "Functions.h"
 
 
-const int messCoreLenght = 15;  //Lenght of the main data packet that we'll save in memory and send through LoRa
+const int messCoreLenght = 11;  //Lenght of the main data packet that we'll save in memory and send through LoRa
 const int mess2Lenght = 5;      //Lenght of the secundary data packet that we'll save in
 
 //Current order: "Iteration, Time (s), Accel_0, Accel_1, Accel_2, Alt, Press, Euler0, Euler1, Euler2, MaxAlt, Stage #, Sat #, Latitude, Longitude"
@@ -136,7 +136,7 @@ void setup() {
 
   currentStage = STARTUP;
 
-  Serial.print("lol");
+  
   Serial.println("********************************************");
   Serial.println("* Write Something to Enter in WRITER MODE  *");
   Serial.println("********************************************");
@@ -179,30 +179,26 @@ void setup() {
 
     void loop() {
 
-      Serial.print("sadgasdfasfdasdasdfasdfasf");
-
       if (KEY){
       //Outside the switch structure is everything that runs in every single iteration no matter the rocket stage
       dynamicDelay();
       //pyro.readBayTempAll(powderChambTemp);
         switch (currentStage) {
           case STARTUP:
-                Serial.print("sadgasdfasfdasdasdfasdfasf");
-
+                
             startUpInit();
-
             gps.updateGPS();
             checkCommand();
             startupTermination();
             
             break;
           case IDLE:
-            idleInit();
-            
+
+            idleInit(); 
             checkCommand(); //check if there is a command to be executed
             sample();
             parseData();
-            //serialPrintMessage();
+            serialPrintMessage();
             mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
             mem.logBoolData(continuityPyros, currentData["time"], 10, mem.pyroFileName);
             transmitDataDelayed();

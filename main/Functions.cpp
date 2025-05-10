@@ -1,6 +1,14 @@
 #include "Functions.h"
 #include <Arduino.h>
 #include <ArduinoEigen.h>
+#include <LoRa.h> // Ensure LoRa library is included for direct use
+#include "Constants.h" // Include Constants to get CMD_EXECUTE_FREQ_CHANGE
+
+// Define the new confirmation ID
+#define ROCKET_FREQ_CHANGE_CONFIRM 0x09
+
+// Global variable to store pending frequency change requested by GS
+long pendingRocketFreqChangeHz = 0;
 
 // ====================== Global Function Implementations ======================
 
@@ -10,21 +18,21 @@ void serialPrintMessage() {
     Serial.print(messageCore[i], 2);
     Serial.print(", ");
   }
-  Serial.print("\t");
-  for (int i = 0; i < 10; i++) {
-    Serial.print(continuityPyros[i]);
-    Serial.print(", ");
-  }
-  Serial.print("\t");
-  /*   for (int i = 0; i < 4; i++) {
-    Serial.print(powderChambTemp[i], 0);
-    Serial.print(", ");
-  } */
-  for (int i = 0; i < x_dim; i++) {
-    Serial.print(kalmanState(i), 1);
-    Serial.print(", ");
-  }
-  Serial.println("");
+   Serial.print("\n");
+  // for (int i = 0; i < 10; i++) {
+  //   Serial.print(continuityPyros[i]);
+  //   Serial.print(", ");
+  // }
+  // Serial.print("\t");
+  // /*   for (int i = 0; i < 4; i++) {
+  //   Serial.print(powderChambTemp[i], 0);
+  //   Serial.print(", ");
+  // } */
+  // for (int i = 0; i < x_dim; i++) {
+  //   Serial.print(kalmanState(i), 1);
+  //   Serial.print(", ");
+  // }
+  // Serial.println("");
 }
 
 /*
@@ -32,7 +40,7 @@ void serialPrintMessage() {
 */
 void sample() {
   static float prevSampleTime = 0.0f;
-  gps.updateGPS();
+  gps.updateGPS(false);
   pyro.checkContinuityAll(continuityPyros);
 
   if (IS_SIMULATION) {
@@ -187,6 +195,7 @@ void parseData() {
     messageAppend(currentData["iter"], true);
   } else {
     // Do nothing
+    messageAppend(cycleNumber, true);
   }
   messageAppend(currentData["linAccData0"]);
   messageAppend(currentData["linAccData1"]);
@@ -195,11 +204,10 @@ void parseData() {
   messageAppend(currentData["euler1"]);
   messageAppend(currentData["euler2"]);
   messageAppend(currentData["alt"]);
+  messageAppend((float)currentStage);
   messageAppend(gps.getLatitude());
   messageAppend(gps.getLongitude());
-  messageAppend(currentData["rawVel"]);
-  messageAppend((float)currentStage);
-  messageAppend(cycleNumber, true);
+  // messageAppend(currentData["rawVel"]);
 
   //messageAppend(currentData["time"]);
   //messageAppend(currentData["temp"]);
@@ -320,7 +328,9 @@ void startUpInit() {
       Low barometer for the 0 height reference pressure
     */
     sens.setBaroMode(LOW_RATE);
+    
     sens.setIMUMode(IMUONLY_NDOF);
+
     if (IS_SIMULATION) {  //Initialize simulation if we are running one
       randomSeed(2);
       if (!mem.begin(CS_SD)) {
@@ -379,7 +389,7 @@ void startUpInit() {
         Serial.print("Shake and move the device: ");
    
       }
-      Serial.print("Shake and move the device: ");
+      
     }
     sampleDelay = 2000;
     //So we dont re-initialize it:
@@ -412,27 +422,136 @@ void startupTermination() {
   }
 }
 
+/**
+ * @brief Initializes system parameters and sensor settings for an idle state.
+ *
+ * This function is intended to be called when the system enters an idle or standby
+ * mode. It configures various settings to optimize for this state, such as adjusting
+ * sensor sampling rates and providing visual feedback.
+ *
+ * Key configurations set by this function:
+ * - `sampleDelay`: Set to 500 (presumably milliseconds). This will affect how frequently
+ *   sensor data is sampled by other parts of the system that use this variable.
+ * - RLED (Red LED): Turned LOW (off), likely to indicate the system is in an idle state.
+ * - Verbose Logging: If `VERBOSE` is true, a confirmation message "Idle mode initialized"
+ *   is printed to the Serial output.
+ * - Barometer Mode: The barometer (`sens`) is set to `LOW_RATE`. This typically means
+ *   the barometer will sample less frequently, reducing power consumption and data output
+ *   when high-frequency pressure readings are not required.
+ * - IMU Mode: The IMU (`sens`) is set to `HIGH_RATE`. This might seem counter-intuitive
+ *   for an idle mode. However, the original code includes a comment:
+ *   "We can't use the Fusion mode of the BNO055 as it's maximum acceleration is 4g's
+ *   and the rocket is expected to feel up to 6g on launch".
+ *   This implies that even in an idle state (e.g., pre-launch), the IMU is kept at a
+ *   high data rate (and potentially a non-fusion mode like the commented-out `OPERATION_MODE_AMG`)
+ *   to ensure it can accurately capture high-acceleration events if the system transitions
+ *   out of idle unexpectedly or upon launch. This avoids missing critical data due to
+ *   sensor limitations in fusion modes at high G-forces.
+ *
+ * One-Time Execution:
+ * This function uses a `static bool idleInitializer` flag. This ensures that the
+ * initialization logic within the `if (idleInitializer)` block is executed only
+ * once, the first time `idleInit()` is called. Subsequent calls to `idleInit()`
+ * will do nothing, preventing repeated re-initialization.
+ *
+ * Implications for the rest of the code:
+ * - The `sampleDelay` value directly influences the timing of data acquisition loops
+ *   elsewhere in the program.
+ * - The sensor modes (`LOW_RATE` for baro, `HIGH_RATE` for IMU) determine the
+ *   responsiveness, data fidelity, and power consumption characteristics of these sensors.
+ *   Other parts of the code reading from `sens` will receive data according to these settings.
+ * - The state of RLED can be used as a visual diagnostic for the system's current mode.
+ * - The commented-out lines `//lora.setToSleep();` and `//sens.putToSleep();` suggest
+ *   that further power optimization by putting LoRa module and other sensor components
+ *   into a deeper sleep state might be intended or was previously considered for this
+ *   idle mode. This could be relevant for battery-powered applications.
+ *
+ * @note This function should be called when the system is intended to be quiescent
+ *       but ready to transition to an active state, potentially with specific sensor
+ *       configurations pre-set for that transition (e.g., high-rate IMU for launch).
+ */
+
 void idleInit() {
-  //Set sensor characteristics for IDLEING
+  // This function configures system parameters for the IDLE state.
+  // It's designed to run only once when entering IDLE to prevent re-initialization.
   static bool idleInitializer = true;
   if (idleInitializer) {
+
+    // --- General Settings for IDLE Mode ---
+
+    // Variable: sampleDelay
+    // Purpose: Sets the interval (in milliseconds) between sensor data samples.
+    // Current Value: 500 ms
+    // Impact: Affects data acquisition rate. A higher value means less frequent samples,
+    //         which can reduce processing load and power consumption during IDLE.
+    // Operator Note: Adjust the '500' below if a different sampling frequency is desired for IDLE.
     sampleDelay = 500;
+
+    // Variable: RLED (Red LED)
+    // Purpose: Provides a visual status indication for the system.
+    // Current State: LOW (OFF)
+    // Impact: The Red LED is turned OFF to visually signify that the system is out Startup mode.
+    // Impact: The Green LED is turned ON to visually signify that the system is in IDLE mode.
+    // Operator Note: Change 'LOW' to 'HIGH' if an illuminated LED is preferred to indicate IDLE.
     digitalWrite(RLED, LOW);
+
+    digitalWrite(GLED, HIGH);
 
     if (VERBOSE) {
       Serial.println("Idle mode initialized");
     }
-    /*
-      We can't use the Fusion mode of the BNO055 as it's maximum acceleration is 4g's and the rocket is expected
-      to feel up to 6g on launch
-    */
-    sens.setBaroMode(LOW_RATE);
-    sens.setIMUMode(HIGH_RATE);
-    sens.imu.setMode(OPERATION_MODE_AMG);  //No-fusion mode */
 
-    //lora.setToSleep();
-    //sens.putToSleep();
-    idleInitializer = false;
+    // --- Sensor Configuration for IDLE Mode ---
+    // These settings aim to balance power consumption with readiness for transitioning to active states.
+
+    // Sensor: Barometer (accessed via 'sens' object)
+    // Setting: Barometer Mode
+    // Current Value: LOW_RATE
+    // Purpose: Reduces the barometer's sampling frequency. This minimizes data output and power usage
+    //          when high-frequency pressure readings are not critical (i.e., during IDLE).
+    // Operator Note: If more frequent pressure data is needed during IDLE, change 'LOW_RATE'
+    //                to 'MID_RATE' or 'HIGH_RATE' (refer to sensor library for specifics).
+    sens.setBaroMode(LOW_RATE);
+
+    // Sensor: IMU (accessed via 'sens' object, e.g., BNO055)
+    // Setting: IMU Mode
+    // Current Value: HIGH_RATE
+    // Rationale: The IMU is kept at a high data rate even in IDLE. This is a precaution:
+    //            standard fusion modes of the BNO055 (like NDOF) might have a maximum acceleration
+    //            limit of around 4g. The rocket is expected to experience up to ~6g on launch.
+    //            Setting a HIGH_RATE mode (often a non-fusion or basic IMU data mode) ensures
+    //            the sensor can capture such high-G events accurately if the system transitions
+    //            rapidly from IDLE to an active state (e.g., launch).
+    // Operator Note: If a different IMU behavior or a specific fusion/non-fusion mode is desired
+    //                during IDLE, change 'HIGH_RATE'. Consult the sensor library for available modes
+    //                (e.g., NDOF, IMUONLY_NDOF, OPERATION_MODE_AMG).
+    //sens.setIMUMode(HIGH_RATE);
+
+    /*
+    // Example: Setting IMU to a specific non-fusion mode (Accelerometer, Magnetometer, Gyroscope).
+    // This line is currently commented out.
+    // Operator Note: Uncomment 'sens.imu.setMode(OPERATION_MODE_AMG);' if raw sensor data
+    //                without on-board fusion is preferred during the IDLE state.
+    // sens.imu.setMode(OPERATION_MODE_AMG);
+    */
+
+    // --- Optional Power Saving Measures (Currently Commented Out) ---
+    // These lines can be enabled for applications where minimizing power consumption
+    // during extended IDLE periods is critical (e.g., battery-powered operation).
+
+    // Device: LoRa Module
+    // Action: Put to Sleep
+    // Operator Note: Uncomment 'lora.setToSleep();' to enable sleep mode for the LoRa module
+    //                during IDLE. Ensure it's woken up before needing to transmit/receive.
+    // // lora.setToSleep();
+
+    // Device: Main Sensor Unit (accessed via 'sens' object)
+    // Action: Put to Sleep
+    // Operator Note: Uncomment 'sens.putToSleep();' to enable sleep mode for the primary sensors
+    //                during IDLE. Ensure sensors are woken up before active data acquisition.
+    // // sens.putToSleep();
+
+    idleInitializer = false; // Flag to ensure this initialization logic runs only once.
   }
 }
 
@@ -458,7 +577,7 @@ void boostInit() {
     }
     sens.setBaroMode(HIGH_RATE);
     sens.restoreCalibration();  //It is very important to restore calibration as it allows correct functioning of fusion mode.
-    sens.setIMUMode(IMUONLY_NDOF);
+    //sens.setIMUMode(IMUONLY_NDOF);
     boostInitializer = false;
   }
 }
@@ -505,7 +624,7 @@ void coastInit() {
     }
     sens.setBaroMode(MID_RATE);
     sens.restoreCalibration();  //It is very important to restore calibration as it allows correct functioning of fusion mode.
-    sens.setIMUMode(IMUONLY_NDOF);
+    //sens.setIMUMode(IMUONLY_NDOF);
     coastInitializer = false;
   }
 }
@@ -550,7 +669,7 @@ void drogueInit() {
       Serial.println("Drogue descent initialized");
     }
     sens.setBaroMode(MID_RATE);
-    sens.setIMUMode(IMUONLY_IMU);
+    //sens.setIMUMode(IMUONLY_IMU);
     pyro.firePyro(1, 'a');
     pyro.firePyro(1, 'b');
     pyro.firePyro(2, 'a');
@@ -583,7 +702,7 @@ void mainDescentInit() {
       Serial.println("Main descent initialized");
     }
     sens.setBaroMode(HIGH_RATE);
-    sens.setIMUMode(HIGH_RATE);
+    //sens.setIMUMode(HIGH_RATE);
     pyro.firePyro(4, 'a');
     pyro.firePyro(4, 'b');
     pyro.firePyro(5, 'a');
@@ -682,34 +801,77 @@ void checkCommand() {
     digitalWrite(CAMERA_PIN, LOW);
         lora.lastCommand = 0x00;
   } else if (command == 0x08) {
-    // Command to change LoRa frequency
-    // Assumes lora.checkReceive() read the command byte (0x08)
-    // and LoRa.readString() reads the rest of the packet payload.
-    String freqStr = LoRa.readString(); // Read the frequency string payload
+    // Command to request LoRa frequency change (Step 1 of handshake)
+    String freqStr = LoRa.readString(); // Read the frequency string payload (should be in Hz)
     
     if (freqStr.length() > 0) {
-        long newFrequency = atol(freqStr.c_str()); // Convert string to long
+        long newFrequency = atol(freqStr.c_str()); // Convert string to long (Hz)
 
         if (VERBOSE) {
-            Serial.print("Received frequency change command. Attempting to set frequency to: ");
-            Serial.println(newFrequency);
+            Serial.print("Received frequency change request (0x08). Requested frequency: ");
+            Serial.print(newFrequency);
+            Serial.println(" Hz");
         }
         
-        // Attempt to set the frequency using the LoraHandler method
+        // Validate the frequency range (915 MHz to 930 MHz for rocket)
+        if (newFrequency >= 915E6 && newFrequency <= 930E6) { // Adjusted range check
+            if (VERBOSE) {
+                Serial.print("Frequency is valid. Sending confirmation (0x09) and storing pending change to: ");
+                Serial.println(newFrequency);
+            }
+
+            // 1. Send confirmation back to GS (Step 2 of handshake)
+            LoRa.beginPacket();
+            LoRa.write(ROCKET_FREQ_CHANGE_CONFIRM); // Send confirmation ID 0x09
+            LoRa.print(freqStr);                   // Send back the frequency string
+            LoRa.endPacket();
+            
+            // 2. Store the frequency, but DO NOT change yet
+            pendingRocketFreqChangeHz = newFrequency;
+            
+        } else {
+            if (VERBOSE) {
+                Serial.print("Invalid frequency requested: ");
+                Serial.print(newFrequency);
+                Serial.println(" Hz. Ignoring request. Must be between 915MHz and 930MHz.");
+            }
+            pendingRocketFreqChangeHz = 0; // Ensure no pending change if invalid
+        }
+        
+    } else {
+        if (VERBOSE) {
+            Serial.println("Received frequency change command (0x08) but payload was empty.");
+        }
+        pendingRocketFreqChangeHz = 0; // Ensure no pending change
+    }
+    
+    lora.lastCommand = 0x00; // Clear command
+        
+  } else if (command == CMD_EXECUTE_FREQ_CHANGE) { // Command 0x0A (Step 4 of handshake)
+      if (VERBOSE) {
+          Serial.print("Received Execute Frequency Change command (0x0A). ");
+      }
+      // Check if a frequency change was actually pending
+      if (pendingRocketFreqChangeHz != 0) {
+          if (VERBOSE) {
+              Serial.print("Executing pending frequency change to: ");
+              Serial.println(pendingRocketFreqChangeHz);
+          }
+          // Execute the frequency change
+          LoRa.setFrequency(pendingRocketFreqChangeHz); 
           
-        LoRa.setFrequency(newFrequency); 
-
-        if (VERBOSE) {
-            // Log that the attempt was made. We can't confirm success directly from the return value.
-            Serial.println("Frequency set command executed."); 
-        }
-        
-        lora.lastCommand = 0x00; // Clear command
-        
-        }
-
-        
-    } 
+          if (VERBOSE) {
+              Serial.println("Rocket LoRa frequency changed."); 
+          }
+          // Clear the pending change
+          pendingRocketFreqChangeHz = 0; 
+      } else {
+          if (VERBOSE) {
+              Serial.println("No frequency change was pending. Ignoring command.");
+          }
+      }
+      lora.lastCommand = 0x00; // Clear command
+  }
     
     
 }

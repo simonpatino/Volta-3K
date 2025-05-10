@@ -18,7 +18,7 @@ bool GPSController::begin() {
 }
 
 
-bool GPSController::updateGPS(bool verbose = true) { // Default verbose to true
+bool GPSController::updateGPS(bool verbose /* = true */) { // Update signature, comment shows default
   // Serial.println("GPSController: Checking Ublox module..."); // Removed as requested
 
   myGPS.checkUblox(); // Check for new data from the module

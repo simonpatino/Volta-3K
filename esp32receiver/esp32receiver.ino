@@ -16,26 +16,47 @@
 // DIO0: Digital IO pin used for LoRa interrupts
 #define LORA_DIO0 26
 
-// Command code for frequency change
-#define CMD_SET_FREQUENCY 0x08
+// Command codes
+#define CMD_GROUND_CONFIRM 0x01
+#define CMD_PYRO_STATUS 0x04
+#define CMD_EJECTION_INFO 0x05 // Not implemented on rocket
+#define CMD_CAMERA_ON 0x06
+#define CMD_CAMERA_OFF 0x07
+#define CMD_SET_FREQUENCY 0x08 // GS sends this to rocket (Step 1)
+#define CMD_ACK 0x07             // Rocket sends this general ACK
+#define ROCKET_FREQ_CHANGE_CONFIRM 0x09 // Rocket sends this confirmation (Step 2)
+#define CMD_EXECUTE_FREQ_CHANGE 0x0A // GS sends this to execute change (Step 3)
+
 // Special code to indicate waiting for frequency input via Serial
 #define AWAIT_FREQUENCY_INPUT 0xFF
 
-
-// onAwait: Tracks if we are waiting for operator command from terminal
-//          0x00 means waiting for command
-//          0xFF means waiting for frequency input after 'l' command
-//          Other values indicate specific command states (e.g., 0x08 for frequency change)
+// onAwait: Tracks current command state
+//          0x00: Idle, waiting for user command
+//          AWAIT_FREQUENCY_INPUT (0xFF): Waiting for user to type frequency
+//          CMD_SET_FREQUENCY (0x08): Command 0x08 sent, waiting for ROCKET_FREQ_CHANGE_CONFIRM (0x09)
+//          Other CMD_ values: Command sent, waiting for CMD_ACK (0x07)
 byte onAwait = 0x00;
 
-// Delay between retransmission attempts in milliseconds
-int insistDelay = 200;
+// Delay between retransmission attempts in milliseconds (only for 0x08)
+int insistDelay = 500; // Increased delay slightly
 
 // Timestamp of last transmission, used for timing retries
-long lastTransmit = 0;
+unsigned long lastTransmit = 0;
 
-// Variable to store the frequency string to be sent
+// Variable to store the frequency string (in Hz) to be sent with 0x08
 String frequencyStringToSend = "";
+
+// Variables for scheduling GS frequency change after sending 0x0A
+long pendingGsFreqChangeHz = 0; 
+unsigned long gsFreqChangeExecuteTime = 0;
+const unsigned long GS_CHANGE_DELAY_MS = 500; // Wait 500ms after sending 0x0A before GS changes
+
+// Variables for repeatedly sending Execute command (0x0A)
+bool isSendingExecuteCmd = false;
+unsigned long executeCmdSendUntil = 0;
+unsigned long lastExecuteCmdSentTime = 0;
+const unsigned long EXECUTE_CMD_SEND_DURATION_MS = 4000; // Send 0x0A for 1.5 seconds
+const unsigned long EXECUTE_CMD_INTERVAL_MS = 150;     // Send 0x0A every 150ms during the duration
 
 void setup() {
   // Initialize Serial communication at 9600 baud rate
@@ -49,13 +70,16 @@ void setup() {
   // Configure LoRa module with defined pins for SPI communication
   LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
   
-  // Initialize LoRa at 915MHz frequency (North American band)
-  // If initialization fails, print error and halt program
-  if (!LoRa.begin(915E6)) {
+  // Initialize LoRa at 915MHz frequency (North American band) - Initial Frequency
+  long initialFrequency = 915E6;
+  if (!LoRa.begin(initialFrequency)) {
     Serial.println("Starting LoRa failed!");
     while (1)
       ;
   }
+  Serial.print("LoRa initialized at: ");
+  Serial.print(initialFrequency / 1E6);
+  Serial.println(" MHz");
 
   // Configure LoRa radio parameters:
   // - Sync word: 0xAF (helps filter unwanted packets)
@@ -79,261 +103,266 @@ void setup() {
   Serial.println("╚══════════════════════════════════════╝");
 }
 
-
 void loop() {
-  // Check for incoming packets
+  // --- Execute Scheduled GS Frequency Change ---
+  if (pendingGsFreqChangeHz != 0 && !isSendingExecuteCmd && millis() >= gsFreqChangeExecuteTime) { // Only change if not sending 0x0A and time is up
+      Serial.print("Executing scheduled GS frequency change to: ");
+      Serial.print(pendingGsFreqChangeHz / 1E6); // Print in MHz
+      Serial.println(" MHz");
+      
+      // Change GS LoRa frequency
+      LoRa.setFrequency(pendingGsFreqChangeHz);
+      
+      Serial.println("Local GS LoRa frequency changed.");
+      pendingGsFreqChangeHz = 0; // Clear pending change
+      gsFreqChangeExecuteTime = 0;
+  }
+
+  // --- Repeatedly Send Execute Command (0x0A) if in that phase ---
+  if (isSendingExecuteCmd) {
+      if (millis() >= executeCmdSendUntil) {
+          // Time to stop sending 0x0A
+          isSendingExecuteCmd = false;
+          // Schedule the local GS frequency change (using the already stored pendingGsFreqChangeHz)
+          gsFreqChangeExecuteTime = millis() + GS_CHANGE_DELAY_MS;
+          Serial.print("Finished sending 0x0A. Scheduled local GS frequency change in ");
+          Serial.print(GS_CHANGE_DELAY_MS);
+          Serial.println(" ms.");
+      } else {
+          // Continue sending 0x0A at intervals
+          if (millis() - lastExecuteCmdSentTime >= EXECUTE_CMD_INTERVAL_MS) {
+              Serial.println("Sending Execute command (0x0A)...");
+              LoRa.beginPacket();
+              LoRa.write(CMD_EXECUTE_FREQ_CHANGE);
+              LoRa.endPacket();
+              lastExecuteCmdSentTime = millis();
+          }
+      }
+  }
+
+  // --- Check for Incoming Packets ---
   if (LoRa.parsePacket()) {
-    // Each packet starts with a single byte ID indicating the message type
-    byte dataID;           
-    dataID = LoRa.read();  
+    byte dataID = LoRa.read(); // Read the first byte (ID)
+    
     Serial.print(dataID);
     Serial.print(": ");
-
-
-    /*
-     * Ground Station Message Protocol Documentation
-     * 
-     * The ground station receives messages from the rocket with the following ID format:
-     * 
-     * 0x00: Core Telemetry Data
-     * - Contains main flight parameters as comma-separated string
-     * - Format Example: "Iteration,Time,Accel[3],Alt,Press,Euler[3],MaxAlt,Stage,Sat#,Lat,Long"
-     * - Example: "156,12.5,-0.5,9.8,1.2,1050,101.3,0,90,180,1200,2,8,51.5,-0.1"
-     * 
-     * 0x02: Secondary Telemetry Data
-     * - Dafault ID send for the rocket when it turns on
-     * - Format: "Gps Data"
-     * - Example: "Gps Data"
-     * 
-     * 0x03: GPS Position Data
-     * - Contains GPS coordinates and related info as string
-     * - Format similar to core telemetry but focused on location data
-     * 
-     * 0x04: Pyro Channel Status
-     * - Contains 10 boolean values (0/1) for pyro channel continuity
-     * - Each channel status sent as single byte
-     * - Example: 1 1 0 1 0 0 0 0 1 1 (channels 1,2,4,9,10 have continuity)
-     * 
-     * 0x06: Reserved
-     * - Reserved for future protocol expansion
-     * 
-     * 0x07: Command Acknowledgment
-     * - Confirmation that rocket received ground command
-     * - Contains no additional data
-     */
-
-    // Handle different message types based on dataID
-    if (dataID == 0x00 || dataID == 0x03) {
-      // 0x00: Core telemetry data in simple format
-      // 0x03: GPS position data
-      // Both message types contain string data that should be printed directly
-      while (LoRa.available()) {
-        String received = LoRa.readString();
-        Serial.print(received);
-        Serial.print(LoRa.rssi());
-      }
-    } else if(dataID == 0x02) {
-      // 0x02: Secondary telemetry data
-      // Contains string data that should be printed directly
-      while (LoRa.available()) {
-        String received = LoRa.readString();
-        Serial.print(received);
-        
-      }
-    } else if (dataID == 0x07) {
-      // 0x07: Acknowledgment message from rocket
-      // Indicates rocket received our last command
-      Serial.print("Confirmation Received for command 0x");
-      Serial.println(onAwait, HEX); // Print the command that was acknowledged
-
-      // Check if the acknowledged command was the frequency change command
-      if (onAwait == CMD_SET_FREQUENCY && frequencyStringToSend.length() > 0) {
-        // Attempt to parse the frequency string to a long integer using atol for better range
-        long newFrequencyHz = atol(frequencyStringToSend.c_str()); 
-        
-        // Validate if the parsed frequency is within the allowed range (905 MHz to 930 MHz)
-        if (newFrequencyHz >= 905E6 && newFrequencyHz <= 930E6) { 
-            Serial.print("Attempting to change local frequency to: ");
-            Serial.print(frequencyStringToSend);
-            Serial.println(" Hz");
-            // Call setFrequency directly without checking the return value
-            LoRa.setFrequency(newFrequencyHz);
-            // Assume the change was initiated, cannot confirm success via return value
-            Serial.println("Local LoRa frequency change initiated.");
-        } else {
-            Serial.print("Error: Requested frequency ");
-            Serial.print(frequencyStringToSend);
-            Serial.println(" Hz is outside the allowed range (905-930 MHz).");
-            Serial.println("Local frequency NOT changed.");
+    
+    // --- Handle Rocket Confirmation for Frequency Change (0x09) --- Step 2 Received
+    if (dataID == ROCKET_FREQ_CHANGE_CONFIRM) {
+        String confirmedFreqStr = "";
+        while(LoRa.available()) {
+            confirmedFreqStr += (char)LoRa.read();
         }
+        
+        Serial.print("Received Frequency Change Confirmation (0x09) from rocket. Confirmed Frequency: ");
+        Serial.print(confirmedFreqStr);
+        Serial.println(" Hz");
+
+        // Check if we were actually waiting for this confirmation (sent 0x08)
+        if (onAwait == CMD_SET_FREQUENCY) {
+            long confirmedFrequencyHz = atol(confirmedFreqStr.c_str());
+
+            // Optional: Validate again if the confirmed frequency matches what we intended to send
+            // and is within the valid range (905-930 MHz for GS)
+            if (confirmedFrequencyHz >= 905E6 && confirmedFrequencyHz <= 930E6 && confirmedFreqStr == frequencyStringToSend) {
+                 Serial.println("Confirmation matches request. Starting to send Execute command (0x0A) repeatedly.");
+                 
+                 // Store frequency for later local change
+                 pendingGsFreqChangeHz = confirmedFrequencyHz; 
+                 
+                 // Start the process of sending 0x0A repeatedly
+                 isSendingExecuteCmd = true;
+                 executeCmdSendUntil = millis() + EXECUTE_CMD_SEND_DURATION_MS;
+                 lastExecuteCmdSentTime = 0; // Send first one immediately in the next loop iteration
+
+                 // Reset state: Handshake proceeding
+                 onAwait = 0x00; 
+                 frequencyStringToSend = ""; // Clear stored frequency
+            } else {
+                 Serial.print("Error: Confirmed frequency ");
+                 Serial.print(confirmedFreqStr);
+                 Serial.println(" Hz does not match request or is invalid.");
+                 Serial.println("Aborting frequency change. Resetting state.");
+                 // Reset state: Handshake failed
+                 onAwait = 0x00; 
+                 frequencyStringToSend = ""; 
+            }
+        } else {
+            Serial.println("Received frequency change confirmation (0x09), but wasn't expecting it (State != 0x08). Ignoring.");
+        }
+    } 
+    // --- Handle General Acknowledgment (0x07) ---
+    else if (dataID == CMD_ACK) {
+        Serial.print("Received General Acknowledgment (0x07) for command 0x");
+        Serial.println(onAwait, HEX);
+
+        // Ignore ACKs if we are in the middle of the frequency change handshake (waiting for 0x09)
+        // Also ignore if we are busy sending the execute command (0x0A)
+        if (onAwait == CMD_SET_FREQUENCY || isSendingExecuteCmd) {
+            Serial.println("Ignoring general ACK (0x07) during frequency change handshake/execution.");
+        } 
+        // For any other command we were waiting for, the general ACK is sufficient.
+        else if (onAwait != 0x00 && onAwait != AWAIT_FREQUENCY_INPUT) {
+            Serial.println("Command acknowledged. Resetting state.");
+            onAwait = 0x00; // Reset state, command successful
+            frequencyStringToSend = ""; // Should be clear anyway
+        } else {
+             Serial.println("Received unexpected general ACK (0x07). Ignoring.");
+        }
+    }
+    // --- Handle Telemetry and Other Data ---
+    else if (dataID == 0x00 || dataID == 0x03) { // Core Telemetry or GPS
+      while (LoRa.available()) {
+        String received = LoRa.readString();
+        Serial.print(received);
       }
-
-      //comment 
-
-      onAwait = 0x00; // Clear waiting state regardless of which command was acknowledged
-      frequencyStringToSend = ""; // Clear frequency string storage
-    } else if (dataID == 0x04) {
-      // 0x04: Pyro channel continuity status
-      // Contains 10 boolean values indicating continuity of each pyro channel
+    } else if(dataID == 0x02) { // Secondary Telemetry
+      while (LoRa.available()) {
+        String received = LoRa.readString();
+        Serial.print(received);
+      }
+    } else if (dataID == 0x04) { // Pyro Status
       bool pyroContinuity[10];  
 
-      // Each continuity value is sent as a single byte
-      // 0x01 = true (continuity)
-      // 0x00 = false (no continuity)
       for (int i = 0; i < 10; i++) {
         byte receivedByte = LoRa.read();          
         pyroContinuity[i] = (receivedByte == 1);  
       }
 
-      // Print continuity status for all channels
-      // 1 indicates continuity, 0 indicates no continuity
       for (int i = 0; i < 10; i++) {
         Serial.print(pyroContinuity[i]);
         Serial.print(" ");
       }
-    } else if (dataID == 0x06) {
-      // 0x06: Reserved for future use
+    } else if (dataID == 0x06) { // Reserved
       // Currently no implementation
     } else {
-      // Unknown message type received
-      Serial.print("I received trash");
+      Serial.print("Received unknown data ID: 0x"); 
+      Serial.print(dataID, HEX);
+      Serial.print(" RSSI: ");
+      Serial.print(LoRa.rssi());
+      while(LoRa.available()) { LoRa.read(); } 
     }
     Serial.println(); // End the line after processing any message type
   }
 
-  if (onAwait == AWAIT_FREQUENCY_INPUT) {
-    // We are waiting for the user to type the frequency in MHz via Serial
-    if (Serial.available() > 0) {
-      String freqStrMHz = Serial.readStringUntil('\n');
-      freqStrMHz.trim(); // Remove potential whitespace/newlines
+  // --- Handle User Input and Command Sending/Retransmission ---
+  // Only handle user input/retransmissions if NOT busy sending 0x0A
+  if (!isSendingExecuteCmd) {
+      // State: Waiting for user to type frequency
+      if (onAwait == AWAIT_FREQUENCY_INPUT) {
+          if (Serial.available() > 0) {
+              String freqStrMHz = Serial.readStringUntil('\n');
+              freqStrMHz.trim(); 
 
-      // Validate the frequency string *before* sending anything
-      if (freqStrMHz.length() > 0) {
-        // Parse the input string as a float (MHz)
-        float requestedFrequencyMHz = atof(freqStrMHz.c_str()); 
-        // Convert MHz to Hz
-        long requestedFrequencyHz = (long)(requestedFrequencyMHz * 1E6);
+              if (freqStrMHz.length() > 0) {
+                  float requestedFrequencyMHz = atof(freqStrMHz.c_str()); 
+                  long requestedFrequencyHz = (long)(requestedFrequencyMHz * 1E6);
 
-        // Check if the calculated Hz frequency is within the valid range
-        if (requestedFrequencyHz >= 905E6 && requestedFrequencyHz <= 930E6) {
-          // Frequency is valid, proceed to send the command
-          // Store the frequency *in Hz* as a string for sending
-          frequencyStringToSend = String(requestedFrequencyHz); 
-          Serial.print("Frequency ");
-          Serial.print(freqStrMHz);
-          Serial.print(" MHz (");
-          Serial.print(frequencyStringToSend);
-          Serial.println(" Hz) is valid. Attempting to send frequency change command.");
-          
-          onAwait = CMD_SET_FREQUENCY; // Set state to send the frequency command
+                  if (requestedFrequencyHz >= 905E6 && requestedFrequencyHz <= 930E6) {
+                      frequencyStringToSend = String(requestedFrequencyHz); 
+                      Serial.print("Frequency ");
+                      Serial.print(freqStrMHz);
+                      Serial.print(" MHz (");
+                      Serial.print(frequencyStringToSend);
+                      Serial.println(" Hz) is valid. Sending command 0x08 to rocket.");
+                      
+                      onAwait = CMD_SET_FREQUENCY; 
 
-          // Send the first packet immediately
-          LoRa.beginPacket();
-          LoRa.write(onAwait); // Write command code 0x08
-          LoRa.print(frequencyStringToSend); // Write frequency *in Hz* as string
-          LoRa.endPacket();
-          Serial.println("Command sent.");
-          lastTransmit = millis(); // Start timer for potential retransmissions
-        } else {
-          // Frequency is outside the allowed range
-          Serial.print("Error: Requested frequency ");
-          Serial.print(freqStrMHz);
-          Serial.println(" MHz is outside the allowed range (905-930 MHz).");
-          Serial.println("Command NOT sent. Please try again.");
-          onAwait = 0x00; // Reset state, wait for new command
-          frequencyStringToSend = ""; // Clear stored frequency
-        }
-      } else {
-        // Input string was empty or invalid for parsing
-        Serial.println("Invalid frequency entered. Please enter frequency in MHz (905 - 930).");
-        onAwait = 0x00; // Reset state, wait for new command
-        frequencyStringToSend = ""; // Clear stored frequency
+                      LoRa.beginPacket();
+                      LoRa.write(onAwait); 
+                      LoRa.print(frequencyStringToSend); 
+                      LoRa.endPacket();
+                      Serial.println("Command 0x08 sent. Waiting for confirmation 0x09 from rocket...");
+                      lastTransmit = millis(); 
+                  } else {
+                      Serial.print("Error: Requested frequency ");
+                      Serial.print(freqStrMHz);
+                      Serial.println(" MHz is outside the allowed range (905-930 MHz).");
+                      Serial.println("Command NOT sent. Please try again.");
+                      onAwait = 0x00; 
+                      frequencyStringToSend = ""; 
+                  }
+              } else {
+                  Serial.println("Invalid frequency entered. Please enter frequency in MHz (905 - 930).");
+                  onAwait = 0x00; 
+                  frequencyStringToSend = ""; 
+              }
+          }
+      } 
+      else if (onAwait == CMD_SET_FREQUENCY) {
+          if (millis() - lastTransmit > insistDelay) {
+              Serial.print("No confirmation (0x09) received. Retransmitting command 0x08 with frequency ");
+              Serial.print(frequencyStringToSend);
+              Serial.print(" Hz..."); 
+              
+              LoRa.beginPacket();
+              LoRa.write(onAwait); 
+              LoRa.print(frequencyStringToSend); // Ensure frequency string is sent on retransmit
+              LoRa.endPacket();
+              Serial.println(" Sent.");
+              lastTransmit = millis(); 
+          }
+      } 
+      else if (onAwait != 0x00 && onAwait != AWAIT_FREQUENCY_INPUT) {
+          if (millis() - lastTransmit > insistDelay) { 
+              Serial.print("No acknowledgment (0x07) received. Retransmitting command 0x"); 
+              Serial.println(onAwait, HEX);
+              
+              LoRa.beginPacket();
+              LoRa.write(onAwait); 
+              LoRa.endPacket();
+              lastTransmit = millis(); 
+          }
       }
-    }
-  } else if (onAwait != 0x00) {
-    // If we are in the process of sending a command (which is now guaranteed to be valid) 
-    // and haven't received acknowledgment, continuously retry sending the command 
-    // every insistDelay milliseconds until acknowledged
-    if (int(millis() - lastTransmit) > insistDelay) {
-      // Begin LoRa packet transmission
-      LoRa.beginPacket();
-      // Write the command byte
-      LoRa.write(onAwait);
-      // If the command is to set frequency, also send the frequency string
-      if (onAwait == CMD_SET_FREQUENCY) {
-          LoRa.print(frequencyStringToSend);
+      else { 
+          if (pendingGsFreqChangeHz == 0) { 
+              byte commandToSend = getCommand(); 
+              
+              if (commandToSend != 0x00) {
+                  if (commandToSend == AWAIT_FREQUENCY_INPUT) {
+                      onAwait = AWAIT_FREQUENCY_INPUT;
+                  } else {
+                      onAwait = commandToSend; 
+                      LoRa.beginPacket();
+                      LoRa.write(onAwait);
+                      LoRa.endPacket();
+                      Serial.print("Command sent: 0x"); Serial.println(onAwait, HEX);
+                      Serial.println("Waiting for acknowledgment (0x07)...");
+                      lastTransmit = millis(); 
+                  }
+              }
+          }
       }
-      // End and send the packet
-      LoRa.endPacket();
-      Serial.print("Command sent: 0x"); Serial.println(onAwait, HEX);
-      // Update timestamp of last transmission
-      lastTransmit = millis();
-    }
-  } else {
-    // If we're not currently sending a command or waiting for frequency input,
-    // check if operator has input a new command to send
-    onAwait = getCommand();
-    // If a command other than 'wait for frequency' was entered, send it immediately
-    if (onAwait != 0x00 && onAwait != AWAIT_FREQUENCY_INPUT) {
-        LoRa.beginPacket();
-        LoRa.write(onAwait);
-        // Note: No extra data needed here for commands other than 0x08
-        LoRa.endPacket();
-        Serial.print("Command sent: 0x"); Serial.println(onAwait, HEX);
-        lastTransmit = millis(); // Start timer for potential retransmissions
-    }
-  }
+  } // End of if (!isSendingExecuteCmd)
 }
 
-/**
- * Gets a command from the operator via Serial input and returns the corresponding command code.
- * 
- * Command codes:
- * 0x01 - 's' - Send ground station confirmation | Allow enter the rocket to the next stage
- * 0x04 - 'p' - Request pyro channel status | Check if the pyro channels are working
- * 0x05 - 'c' - Request ejection chamber info | Check if the ejection chambers are working
- * 0x06 - 'o' - Activate camera system 
- * 0x07 - 'f' - Deactivate camera system
- * 0x08 - 'l' - Change LoRa frequency (followed by frequency input prompt)
- * 0xFF - Internal code: Waiting for frequency input after 'l'
- * 0x00 - Any other character or no input
- * 
- * @return byte Command code based on Serial input character, or 0xFF if waiting for frequency.
- */
 byte getCommand() {
   if (Serial.available()) {
-    char incomingChar = Serial.read();  // Read the incoming character
+    char incomingChar = Serial.read();  
     
     switch(incomingChar) {
       case 's':
-        // Send confirmation that ground station is active
         return 0x01;
         
       case 'p': 
-        // Request status of pyro channels (continuity)
         return 0x04;
         
       case 'c':
-        // Request temperature/status of ejection chambers
         return 0x05;
         
       case 'o':
-        // Activate onboard camera recording system
         return 0x06;
 
       case 'f':
-        // Deactivate onboard camera recording system
         return 0x07;
 
       case 'l':
-        // Initiate LoRa frequency change
-        Serial.print("Enter new LoRa frequency in MHz: "); // Updated prompt
-        return AWAIT_FREQUENCY_INPUT; // Return special code to wait for frequency input in loop()
+        Serial.print("Enter new LoRa frequency in MHz: "); 
+        return AWAIT_FREQUENCY_INPUT; 
         
       default:
-        // No valid command, return idle state
         return 0x00;
     }
   }
-  return 0x00; // Return idle state if no Serial input available
+  return 0x00; 
 }
