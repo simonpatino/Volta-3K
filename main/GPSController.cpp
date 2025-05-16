@@ -32,7 +32,10 @@ bool GPSController::updateGPS(bool verbose /* = true */) { // Update signature, 
   if (satellites >= 3) {
     latitude = myGPS.getLatitude() / 1000000.0;
     longitude = myGPS.getLongitude() / 1000000.0;
-    vel = myGPS.groundSpeed / 1000.0;
+    float v_n = myGPS.getNedNorthVel() / 1000.0; // Convert mm/s to m/s
+    float v_e = myGPS.getNedEastVel() / 1000.0;   // Convert mm/s to m/s
+    float v_d = myGPS.getNedDownVel() / 1000.0;   // Convert mm/s to m/s
+    vel = sqrt(v_n * v_n + v_e * v_e + v_d * v_d);
     
     if (verbose) {
       Serial.print("GPSController: GPS Fix obtained. Satellites: "); // Debug: Fix obtained
