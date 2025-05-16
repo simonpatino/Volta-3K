@@ -205,7 +205,8 @@ void parseData() {
   messageAppend(currentData["euler2"]);
   messageAppend(currentData["alt"]);
   messageAppend((float)currentStage);
-  messageAppend(gps.getLatitude());
+  messageAppend(gps.getVel()); 
+  messageAppend(gps.getLatitude()); 
   messageAppend(gps.getLongitude());
   // messageAppend(currentData["rawVel"]);
 

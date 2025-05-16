@@ -19,7 +19,7 @@
 #include "Functions.h"
 
 
-const int messCoreLenght = 11;  //Lenght of the main data packet that we'll save in memory and send through LoRa
+const int messCoreLenght = 12;  //Lenght of the main data packet that we'll save in memory and send through LoRa
 const int mess2Lenght = 5;      //Lenght of the secundary data packet that we'll save in
 
 //Current order: "Iteration, Time (s), Accel_0, Accel_1, Accel_2, Alt, Press, Euler0, Euler1, Euler2, MaxAlt, Stage #, Sat #, Latitude, Longitude"

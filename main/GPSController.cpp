@@ -32,6 +32,8 @@ bool GPSController::updateGPS(bool verbose /* = true */) { // Update signature, 
   if (satellites >= 3) {
     latitude = myGPS.getLatitude() / 1000000.0;
     longitude = myGPS.getLongitude() / 1000000.0;
+    vel = myGPS.groundSpeed / 1000.0;
+    
     if (verbose) {
       Serial.print("GPSController: GPS Fix obtained. Satellites: "); // Debug: Fix obtained
       Serial.print(satellites);
@@ -61,6 +63,11 @@ float GPSController::getLatitude() {
 float GPSController::getLongitude() {
   return longitude;
 }
+
+float GPSController::getVel() {
+  return vel;
+}
+
 int GPSController::getFixes() {
   return myGPS.getSIV();
 }
