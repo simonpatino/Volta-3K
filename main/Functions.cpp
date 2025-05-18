@@ -351,6 +351,9 @@ void startUpInit() {
   */
   static bool startupInitializer = true;  //Variable that protects this function from beeing called more than once
   digitalWrite(RLED, HIGH);
+  digitalWrite(BLED, LOW);
+  digitalWrite(GLED, LOW);  // White color, why not
+
   if (startupInitializer) {
     if (VERBOSE) {
       Serial.println("Starting all systems...");
@@ -569,7 +572,7 @@ void idleInit() {
     // Impact: The Green LED is turned ON to visually signify that the system is in IDLE mode.
     // Operator Note: Change 'LOW' to 'HIGH' if an illuminated LED is preferred to indicate IDLE.
     digitalWrite(RLED, LOW);
-
+    digitalWrite(BLED, LOW);
     digitalWrite(GLED, HIGH);
 
     if (VERBOSE) {
@@ -644,6 +647,11 @@ void idleTermination() {
 }
 
 void boostInit() {
+
+  digitalWrite(BLED, HIGH);
+  digitalWrite(GLED, LOW);
+  digitalWrite(RLED, LOW);
+
   static bool boostInitializer = true;
   if (boostInitializer) {
     /* Set boosting characteristics */
@@ -651,7 +659,7 @@ void boostInit() {
       Serial.println("Boosting initialized");
     }
     sens.setBaroMode(HIGH_RATE);
-    sens.restoreCalibration();  //It is very important to restore calibration as it allows correct functioning of fusion mode.
+    //sens.restoreCalibration();  //It is very important to restore calibration as it allows correct functioning of fusion mode.
     //sens.setIMUMode(IMUONLY_NDOF);
     boostInitializer = false;
   }
@@ -670,6 +678,11 @@ void boostTermination() {
 }
 
 void coastInit() {
+
+  digitalWrite(BLED, HIGH);
+  digitalWrite(RLED, HIGH);
+  digitalWrite(GLED, LOW);
+
   static bool coastInitializer = true;
   if (coastInitializer) {
     kfIteration = 0;
@@ -735,6 +748,13 @@ void coastTermination() {
 }
 
 void drogueInit() {
+
+
+  digitalWrite(BLED, HIGH);
+  digitalWrite(GLED, HIGH);
+  digitalWrite(RLED, LOW);
+
+
   static bool drogueInitializer = true;
   if (drogueInitializer) {
     Cd = Cd_parachute_drogue + Cd_rocket;
@@ -767,6 +787,11 @@ void drogueTermination() {
 }
 
 void mainDescentInit() {
+
+  digitalWrite(BLED, LOW);
+  digitalWrite(GLED, LOW);
+  digitalWrite(RLED, HIGH);
+
   static bool mainDescentInitializer = true;
   if (mainDescentInitializer) {
     /* Main descent characteristics */
@@ -817,6 +842,12 @@ void mainDescentTermination() {
 }
 
 void touchDownInit() {
+
+  digitalWrite(BLED, HIGH);
+  digitalWrite(GLED, HIGH);
+  digitalWrite(RLED, HIGH);
+
+
   static bool touchDownInit = true;
   if (touchDownInit) {
     /* Touch down descent characteristics */
