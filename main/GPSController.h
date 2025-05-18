@@ -15,6 +15,7 @@ class GPSController {
     float getLatitude();
     float getLongitude();
     float getVel();
+    float getAltitude();
   private:
     float latitude, longitude, vel;
 };

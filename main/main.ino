@@ -28,6 +28,9 @@ float messageCore[messCoreLenght] = {};  //The actual data in a float array. It 
 //Current order: Temperature, Humidity, Gyro X, Gyro Y, Gyro Z
 float messageSecundary[mess2Lenght] = {};  //The actual data in a float array. It has an specific order
 
+const int fullDataArraySize = 33; // Increased size for comprehensive local logging
+float fullDataForLogging[fullDataArraySize] = {}; // Array for all local data
+
 std::map<String, float> currentData;  // The last recorded data
 /*
   KEYS
@@ -63,7 +66,7 @@ std::map<String, float> currentData;  // The last recorded data
 */
 
 //Global variables that might be useful here and there.
-int sampleDelay = 500;                                                                                //Fixed sampling delay for the whole system (in ms)
+int sampleDelay = 0;                                                                                //Fixed sampling delay for the whole system (in ms)
 long lastTime = millis();                                                                             //Current time since boot up. Manages the dynamic delay
 long cycleNumber = 0;                                                                                 //Cycle number counter. Works as an ID for each data package
 bool continuityPyros[10] = { false, false, false, false, false, false, false, false, false, false };  //Array with the continuity data of the pyrochannels
@@ -199,8 +202,8 @@ void setup() {
             sample();
             parseData();
             serialPrintMessage();
-            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
-            mem.logBoolData(continuityPyros, currentData["time"], 10, mem.pyroFileName);
+            mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
+            //mem.logBoolData(continuityPyros, currentData["time"], 10, mem.pyroFileName);
             transmitDataDelayed();
 
             idleTermination();
@@ -215,7 +218,7 @@ void setup() {
             parseData();
             transmitDataDelayed();
             serialPrintMessage();
-            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+            mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
             boostTermination();
             break;
 
@@ -229,7 +232,7 @@ void setup() {
             parseData();
             transmitDataDelayed();
             serialPrintMessage();
-            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+            mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
             coastTermination();
             break;
 
@@ -243,7 +246,7 @@ void setup() {
             parseData();
             transmitDataDelayed();
             serialPrintMessage();
-            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+            mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
             drogueTermination();
             break;
 
@@ -256,7 +259,7 @@ void setup() {
             parseData();
             transmitDataDelayed();
             serialPrintMessage();
-            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+            mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
             mainDescentTermination();
             break;
 
@@ -268,7 +271,7 @@ void setup() {
             transmitDataDelayed();
             serialPrintMessage();
             
-            mem.logFloatData(messageCore, messCoreLenght, mem.dataFileName, true);
+            mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
             break;
 
           // Add more cases as needed

@@ -7,6 +7,12 @@
 // Define the new confirmation ID
 #define ROCKET_FREQ_CHANGE_CONFIRM 0x09
 
+// Define new command ID for deleting Volta.txt
+#define CMD_DELETE_VOLTA_FILE 0x0B
+// Define ACK command ID that rocket sends (matches GS expectation)
+#define CMD_ACK_FROM_ROCKET 0x07
+
+
 // Global variable to store pending frequency change requested by GS
 long pendingRocketFreqChangeHz = 0;
 
@@ -41,7 +47,7 @@ void serialPrintMessage() {
 void sample() {
   static float prevSampleTime = 0.0f;
   gps.updateGPS(false);
-  pyro.checkContinuityAll(continuityPyros);
+  //pyro.checkContinuityAll(continuityPyros);
 
   if (IS_SIMULATION) {
     currentData["intTime"] = 0;
@@ -187,14 +193,16 @@ void messageAppend(float info, bool reset ) {
 void parseData() {
   /*
     Organizes the data in a float array for easier printing or radio-communicating it
+    Also populates a more comprehensive array for local logging.
   */
+
+  // Populate messageCore for LoRa (existing logic)
   for (int i = 0; i < messCoreLenght; i++) {
     messageCore[i] = 0.0;
   }
   if (IS_SIMULATION) {
     messageAppend(currentData["iter"], true);
   } else {
-    // Do nothing
     messageAppend(cycleNumber, true);
   }
   messageAppend(currentData["linAccData0"]);
@@ -205,13 +213,70 @@ void parseData() {
   messageAppend(currentData["euler2"]);
   messageAppend(currentData["alt"]);
   messageAppend((float)currentStage);
-  messageAppend(gps.getVel()); 
-  messageAppend(gps.getLatitude()); 
+  messageAppend(gps.getVel());
+  messageAppend(gps.getLatitude());
   messageAppend(gps.getLongitude());
-  // messageAppend(currentData["rawVel"]);
 
-  //messageAppend(currentData["time"]);
-  //messageAppend(currentData["temp"]);
+  // Populate fullDataForLogging for local storage
+  for (int i = 0; i < fullDataArraySize; i++) {
+    fullDataForLogging[i] = 0.0; // Initialize with default
+  }
+
+  int idx = 0;
+  fullDataForLogging[idx++] = IS_SIMULATION ? currentData["iter"] : cycleNumber;
+  fullDataForLogging[idx++] = currentData["time"];
+  fullDataForLogging[idx++] = currentData["temp"];
+  fullDataForLogging[idx++] = currentData["prss"];
+  fullDataForLogging[idx++] = currentData["alt"]; // Baro Alt
+  fullDataForLogging[idx++] = currentData["deltaAlt"];
+  fullDataForLogging[idx++] = currentData["humty"];
+  fullDataForLogging[idx++] = currentData["maxAlt"];
+  fullDataForLogging[idx++] = currentData["angVelData0"]; // Gyro X
+  fullDataForLogging[idx++] = currentData["angVelData1"]; // Gyro Y
+  fullDataForLogging[idx++] = currentData["angVelData2"]; // Gyro Z
+  fullDataForLogging[idx++] = currentData["accData0"];    // Raw Accel X
+  fullDataForLogging[idx++] = currentData["accData1"];    // Raw Accel Y
+  fullDataForLogging[idx++] = currentData["accData2"];    // Raw Accel Z
+  fullDataForLogging[idx++] = currentData["euler0"];      // Euler X
+  fullDataForLogging[idx++] = currentData["euler1"];      // Euler Y
+  fullDataForLogging[idx++] = currentData["euler2"];      // Euler Z
+  fullDataForLogging[idx++] = currentData["linAccData0"]; // Linear Accel X
+  fullDataForLogging[idx++] = currentData["linAccData1"]; // Linear Accel Y
+  fullDataForLogging[idx++] = currentData["linAccData2"]; // Linear Accel Z
+  fullDataForLogging[idx++] = (float)currentStage;
+  fullDataForLogging[idx++] = gps.getLatitude();
+  fullDataForLogging[idx++] = gps.getLongitude();
+  fullDataForLogging[idx++] = gps.getAltitude(); // GPS Alt
+  fullDataForLogging[idx++] = gps.getVel();    // GPS Speed
+  fullDataForLogging[idx++] = (float)gps.getFixes(); // GPS Sats
+  fullDataForLogging[idx++] = currentData["intTime"];
+
+  // Kalman Filter Data (defaults to 0 if KF not active or values are not set)
+  if (kalmanState.size() == x_dim) { // Ensure kalmanState is initialized
+    fullDataForLogging[idx++] = kalmanState(0); // KF Pos
+    fullDataForLogging[idx++] = kalmanState(1); // KF Vel
+    fullDataForLogging[idx++] = kalmanState(2); // KF Acc
+  } else {
+    idx += 3; // Skip if KF state not ready
+  }
+
+  // Simulation-specific data
+  if (IS_SIMULATION) {
+    fullDataForLogging[idx++] = currentData["realAlt"];
+    fullDataForLogging[idx++] = currentData["rawVel"];
+    fullDataForLogging[idx++] = currentData["realAccData1"];
+  } else {
+    idx += 3; // Skip if not in simulation
+  }
+  // Ensure idx matches fullDataArraySize if all fields are populated,
+  // or handle cases where some fields might be skipped.
+  // The current logic fills up to `idx` elements. If `fullDataArraySize` is fixed,
+  // remaining elements will be 0.0 from initialization.
+
+  // Commented out old messageAppend calls for data not in messageCore
+  // messageAppend(currentData["rawVel"]);
+  // messageAppend(currentData["time"]);
+  // messageAppend(currentData["temp"]);
   // messageAppend(currentData["accData0"]);
   // messageAppend(currentData["accData1"]);
   // messageAppend(currentData["accData2"]);
@@ -225,31 +290,40 @@ void parseData() {
   // messageAppend(currentData["angVelData2"]);
 
 
-  // 1. iter - iteration counter
-  // 2. time - current time 
-  // 3. temp - temperature from BME280 sensor
-  // 4. prss - pressure from BME280 sensor 
-  // 5. alt - altitude from BME280 sensor
-  // 6. deltaAlt - change in altitude between readings
-  // 7. humty - humidity from BME280 sensor
-  // 8. angVelData0 - gyroscope X-axis angular velocity
-  // 9. angVelData1 - gyroscope Y-axis angular velocity
-  // 10. angVelData2 - gyroscope Z-axis angular velocity
-  // 11. accData0 - accelerometer X-axis acceleration
-  // 12. accData1 - accelerometer Y-axis acceleration
-  // 13. accData2 - accelerometer Z-axis acceleration
-  // 14. euler0 - X-axis rotation angle (fusion mode only)
-  // 15. euler1 - Y-axis rotation angle (fusion mode only)
-  // 16. euler2 - Z-axis rotation angle (fusion mode only)
-  // 17. linAccData0 - inertial X-axis acceleration (fusion mode only)
-  // 18. linAccData1 - inertial Y-axis acceleration (fusion mode only)
-  // 19. linAccData2 - inertial Z-axis acceleration (fusion mode only)
-  // 20. maxAlt - maximum altitude reached
-  // 21. stage - current flight stage number
-  // 22. sat - number of GPS satellites tracked
-  // 23. lat - GPS latitude
-  // 24. lon - GPS longitude
-
+  // Column Headers for Volta.txt (for reference, not written by this function):
+  // 1.  Cycle/Iter
+  // 2.  Time (s)
+  // 3.  Temperature (C)
+  // 4.  Pressure (hPa)
+  // 5.  Altitude_Baro (m)
+  // 6.  Delta_Altitude (m)
+  // 7.  Humidity (%)
+  // 8.  Max_Altitude (m)
+  // 9.  Gyro_X (deg/s)
+  // 10. Gyro_Y (deg/s)
+  // 11. Gyro_Z (deg/s)
+  // 12. RawAccel_X (m/s^2)
+  // 13. RawAccel_Y (m/s^2)
+  // 14. RawAccel_Z (m/s^2)
+  // 15. Euler_X (deg)
+  // 16. Euler_Y (deg)
+  // 17. Euler_Z (deg)
+  // 18. LinearAccel_X (m/s^2)
+  // 19. LinearAccel_Y (m/s^2)
+  // 20. LinearAccel_Z (m/s^2)
+  // 21. Stage
+  // 22. GPS_Latitude (deg)
+  // 23. GPS_Longitude (deg)
+  // 24. GPS_Altitude (m)
+  // 25. GPS_Speed (m/s)
+  // 26. GPS_Satellites
+  // 27. Interval_Time (s)
+  // 28. KF_Position (m)
+  // 29. KF_Velocity (m/s)
+  // 30. KF_Acceleration (m/s^2)
+  // 31. Sim_RealAltitude (m)
+  // 32. Sim_RawVelocity (m/s)
+  // 33. Sim_RealAccelY (m/s^2)
 }
 
 void dynamicDelay() {
@@ -392,7 +466,7 @@ void startUpInit() {
       }
       
     }
-    sampleDelay = 2000;
+    
     //So we dont re-initialize it:
     startupInitializer = false;
   }
@@ -486,7 +560,7 @@ void idleInit() {
     // Impact: Affects data acquisition rate. A higher value means less frequent samples,
     //         which can reduce processing load and power consumption during IDLE.
     // Operator Note: Adjust the '500' below if a different sampling frequency is desired for IDLE.
-    sampleDelay = 500;
+    //sampleDelay = 0;
 
     // Variable: RLED (Red LED)
     // Purpose: Provides a visual status indication for the system.
@@ -763,7 +837,7 @@ void touchDownInit() {
 /*
   Esta funcion tiene uso especialmente cuando se está en IDLE en el launchpad para enviar comandos a la computadora a bordo
   Esta funcion recive ese comando y lleva a cabo trasmisiones respectivas a cada comando
-*/
+  */
 void checkCommand() {
   lora.checkReceive(); // This should read the first byte into lora.lastCommand and potentially buffer the rest
   byte command = lora.lastCommand;
@@ -872,8 +946,15 @@ void checkCommand() {
           }
       }
       lora.lastCommand = 0x00; // Clear command
-  }
+  } else if (command == CMD_DELETE_VOLTA_FILE) {
+    if (VERBOSE) {
+      Serial.println("Command received: Delete Volta.txt file.");
+    }
+
+    mem.checkAndDeleteFile(mem.dataFileName); // Delete the file if it exists
     
+    lora.lastCommand = 0x00; // Command handled
+  }   
     
 }
 

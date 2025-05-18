@@ -21,6 +21,7 @@ class MemoryManager {
     char kfPerformanceFileName[19] = "kf_performance.csv"; //Kalman Filter output state
     char dataFileName[10] = "Volta.txt";
     char pyroFileName[9] = "pyro.txt";
+    void checkAndDeleteFile(const char* filename);
   private:
     char simFileName[19] = "simDataOpenSim.csv";
     int csPin;
@@ -31,7 +32,7 @@ class MemoryManager {
     SdVolume volume;
     SdFile root;
     int numColumns = 1; //Needs to start on 1
-    void checkAndDeleteFile(const char* filename);
+    
 };
 
 #endif

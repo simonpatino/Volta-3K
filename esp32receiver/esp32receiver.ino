@@ -26,13 +26,17 @@
 #define CMD_ACK 0x07             // Rocket sends this general ACK
 #define ROCKET_FREQ_CHANGE_CONFIRM 0x09 // Rocket sends this confirmation (Step 2)
 #define CMD_EXECUTE_FREQ_CHANGE 0x0A // GS sends this to execute change (Step 3)
+#define CMD_DELETE_VOLTA_FILE 0x0B // GS sends this to rocket to delete Volta.txt
 
 // Special code to indicate waiting for frequency input via Serial
 #define AWAIT_FREQUENCY_INPUT 0xFF
+// Special code to indicate waiting for delete confirmation
+#define AWAIT_DELETE_CONFIRM 0xFE
 
 // onAwait: Tracks current command state
 //          0x00: Idle, waiting for user command
 //          AWAIT_FREQUENCY_INPUT (0xFF): Waiting for user to type frequency
+//          AWAIT_DELETE_CONFIRM (0xFE): Waiting for user to confirm file deletion
 //          CMD_SET_FREQUENCY (0x08): Command 0x08 sent, waiting for ROCKET_FREQ_CHANGE_CONFIRM (0x09)
 //          Other CMD_ values: Command sent, waiting for CMD_ACK (0x07)
 byte onAwait = 0x00;
@@ -289,6 +293,26 @@ void loop() {
               }
           }
       } 
+      // State: Waiting for user to confirm file deletion
+      else if (onAwait == AWAIT_DELETE_CONFIRM) {
+          if (Serial.available() > 0) {
+              String confirmStr = Serial.readStringUntil('\n');
+              confirmStr.trim();
+              confirmStr.toLowerCase();
+              if (confirmStr == "yes") {
+                  Serial.println("Confirmation received. Sending delete file command (0x0B)...");
+                  onAwait = CMD_DELETE_VOLTA_FILE; // Set state to expect ACK for this command
+                  LoRa.beginPacket();
+                  LoRa.write(onAwait);
+                  LoRa.endPacket();
+                  Serial.println("Command 0x0B sent. Waiting for acknowledgment (0x07)...");
+                  lastTransmit = millis();
+              } else {
+                  Serial.println("File deletion cancelled.");
+                  onAwait = 0x00; // Reset state
+              }
+          }
+      }
       else if (onAwait == CMD_SET_FREQUENCY) {
           if (millis() - lastTransmit > insistDelay) {
               Serial.print("No confirmation (0x09) received. Retransmitting command 0x08 with frequency ");
@@ -321,6 +345,9 @@ void loop() {
               if (commandToSend != 0x00) {
                   if (commandToSend == AWAIT_FREQUENCY_INPUT) {
                       onAwait = AWAIT_FREQUENCY_INPUT;
+                  } else if (commandToSend == AWAIT_DELETE_CONFIRM) {
+                      onAwait = AWAIT_DELETE_CONFIRM;
+                      Serial.println("Are you sure you want to send the command to delete Volta.txt? (Type 'yes' to confirm, anything else to cancel):");
                   } else {
                       onAwait = commandToSend; 
                       LoRa.beginPacket();
@@ -359,7 +386,10 @@ byte getCommand() {
       case 'l':
         Serial.print("Enter new LoRa frequency in MHz: "); 
         return AWAIT_FREQUENCY_INPUT; 
-        
+      
+      case 'd': // New command character for delete
+        return AWAIT_DELETE_CONFIRM;
+
       default:
         return 0x00;
     }

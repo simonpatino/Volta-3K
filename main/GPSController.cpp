@@ -74,3 +74,7 @@ float GPSController::getVel() {
 int GPSController::getFixes() {
   return myGPS.getSIV();
 }
+
+float GPSController::getAltitude() {
+  return myGPS.getAltitude();
+}

@@ -18,6 +18,8 @@ extern const int messCoreLenght;
 extern const int mess2Lenght;
 extern float messageCore[];
 extern float messageSecundary[];
+extern const int fullDataArraySize; // Increased size for comprehensive local logging
+extern float fullDataForLogging[]; // Array for all local data
 extern std::map<String, float> currentData;
 extern int sampleDelay;
 extern long lastTime;
