@@ -74,7 +74,7 @@ void LoRaComm::onReceive(int packetSize) {
     LoRaComm::lastCommand = LoRa.read();
     //Envía mensaje de confirmación y espera un segundo para que no se interrumpa la comunicación siguiente a esta
     transmitConfirmation();
-    delay(100);
+    delay(0);
   }
 }
 

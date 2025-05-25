@@ -147,7 +147,7 @@ void setup() {
 
 
   //NORMAL OR WRITER MODE 
-  float STAR_TIME = 10.0f;  
+  float STAR_TIME = 5.0f;  
   while ( STAR_TIME*1000 - millis() > 0){
     if (Serial.available()){
       KEY = false;
@@ -201,7 +201,11 @@ void setup() {
             checkCommand(); //check if there is a command to be executed
             sample();
             parseData();
+
+            if (VERBOSE){
             serialPrintMessage();
+            }
+
             mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
             //mem.logBoolData(continuityPyros, currentData["time"], 10, mem.pyroFileName);
             transmitDataDelayed();
@@ -217,7 +221,11 @@ void setup() {
             sample();
             parseData();
             transmitDataDelayed();
-            serialPrintMessage();
+
+            if (VERBOSE){
+              serialPrintMessage();
+            }
+            
             mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
             boostTermination();
             break;
@@ -231,7 +239,11 @@ void setup() {
             sample();
             parseData();
             transmitDataDelayed();
+
+            if (VERBOSE){
             serialPrintMessage();
+            }
+
             mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
             coastTermination();
             break;
@@ -245,7 +257,11 @@ void setup() {
             sample();
             parseData();
             transmitDataDelayed();
+
+            if (VERBOSE){ 
             serialPrintMessage();
+            }
+
             mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
             drogueTermination();
             break;
@@ -258,7 +274,11 @@ void setup() {
             sample();
             parseData();
             transmitDataDelayed();
+
+            if (VERBOSE){
             serialPrintMessage();
+            }
+
             mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
             mainDescentTermination();
             break;
@@ -269,7 +289,10 @@ void setup() {
             sample();
             parseData();
             transmitDataDelayed();
+
+            if(VERBOSE){
             serialPrintMessage();
+            }
             
             mem.logFloatData(fullDataForLogging, fullDataArraySize, mem.dataFileName, false); // Changed to log full data
             break;
@@ -278,7 +301,9 @@ void setup() {
           default:
             // Code to execute if none of the above cases match
 
+            if (VERBOSE) {
             Serial.println("Unknown stage. Please check the code.");
+            }
             
             break;
         }

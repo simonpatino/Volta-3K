@@ -46,7 +46,7 @@ void serialPrintMessage() {
 */
 void sample() {
   static float prevSampleTime = 0.0f;
-  gps.updateGPS(false);
+  //gps.updateGPS(false);
   //pyro.checkContinuityAll(continuityPyros);
 
   if (IS_SIMULATION) {
@@ -483,6 +483,9 @@ void startupTermination() {
     * 500 pressure samples where taken    
     * is a simulation
   */
+
+  groundConfirmation = true;
+  
   if (groundConfirmation) {
     if ( groundConfirmation || IS_SIMULATION) {
       //
@@ -638,7 +641,7 @@ void idleTermination() {
     * Acceleration along the z axis is higer than 5g
     TODO: DO NOT USE z acceleration but net acceleration (can't be done because max g's on fusion mode is 4g's) and higher altitude.
   */
-  if (currentData["accData1"] - 9.81 > (9.81 * 2)) {  //we passed the net 2g threshold
+  if (currentData["accData1"] - 9.81 > (0)) {  //we passed the net 2g threshold
     if (VERBOSE) {
       Serial.println("Idle terminated");
     }
@@ -789,7 +792,7 @@ void drogueTermination() {
 void mainDescentInit() {
 
   digitalWrite(BLED, LOW);
-  digitalWrite(GLED, LOW);
+  digitalWrite(GLED, HIGH);
   digitalWrite(RLED, HIGH);
 
   static bool mainDescentInitializer = true;

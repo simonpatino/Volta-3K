@@ -30,8 +30,8 @@ bool GPSController::updateGPS(bool verbose /* = true */) { // Update signature, 
   }
 
   if (satellites >= 3) {
-    latitude = myGPS.getLatitude() / 1000000.0;
-    longitude = myGPS.getLongitude() / 1000000.0;
+    latitude = myGPS.getLatitude() / 10000000.0;
+    longitude = myGPS.getLongitude() / 10000000.0;
     float v_n = myGPS.getNedNorthVel() / 1000.0; // Convert mm/s to m/s
     float v_e = myGPS.getNedEastVel() / 1000.0;   // Convert mm/s to m/s
     float v_d = myGPS.getNedDownVel() / 1000.0;   // Convert mm/s to m/s
