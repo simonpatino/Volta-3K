@@ -75,7 +75,7 @@ void setup() {
   LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
   
   // Initialize LoRa at 915MHz frequency (North American band) - Initial Frequency
-  long initialFrequency = 915E6;
+  long initialFrequency = 918.250E6;
   if (!LoRa.begin(initialFrequency)) {
     Serial.println("Starting LoRa failed!");
     while (1)
