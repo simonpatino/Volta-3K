@@ -5,8 +5,6 @@ import pandas as pd
 from datetime import datetime
 import time
 
-#pip install pyserial matplotlib pandas numpy
-
 class ArduinoDataVisualizer:
     def __init__(self, port='COM3', baudrate=115200):
         # Serial connection
@@ -16,7 +14,7 @@ class ArduinoDataVisualizer:
         
         # Data columns
         self.columns = ['Cycle', 'Time', 'Temp_C', 'Press_hPa', 'Alt_m', 'humidity', 
-                       'MaxAlt_m', 'AccelX', 'AccelY', 'AccelZ', 'gyroX', 'gyroY', 
+                       'MaxAlt_m', 'AccelXpip', 'AccelY', 'AccelZ', 'gyroX', 'gyroY', 
                        'gyroZ', 'EulerX', 'EulerY', 'EulerZ', 'Stage', 'GPS_Lat', 
                        'GPS_Lon', 'GPS_Valid', 'GPS_Sats']
         
@@ -26,45 +24,47 @@ class ArduinoDataVisualizer:
         try:
             self.ser = serial.Serial(self.port, self.baudrate, timeout=2)
             print(f"Connected to {self.port} at {self.baudrate} baud")
-            time.sleep(2)  # Allow connection to stabilize
+            # Reduce delay to ensure we can send "HERE" within 5 seconds
+            time.sleep(0.5)  # Minimal delay for connection to stabilize
             return True
         except Exception as e:
             print(f"Failed to connect: {e}")
             return False
     
     def read_complete_data(self):
-        """Read the complete data file from Arduino serial"""
-        print("Reading data from Arduino...")
-        print("Waiting for data transmission to start...")
+        """Simple protocol: HERE -> wait 10s -> R -> collect data"""
+        print("Simple Teensy protocol...")
         
+        # Step 1: Send HERE
+        print("Sending 'HERE'...")
+        self.ser.write(b'HERE\n')
+        
+        # Step 2: Wait 10 seconds
+        print("Waiting 10 seconds...")
+        time.sleep(10)
+        
+        # Step 3: Send 
+        print("Sending 'R'...")
+        self.ser.write(b'R\n')
+        
+        # Step 4: Collect all data lines (ignore everything else)
+        print("Collecting data...")
         all_lines = []
         start_time = time.time()
-        last_data_time = time.time()
-        timeout_duration = 5  # seconds without data before assuming transmission is complete
         
-        # Skip any initial garbage or setup messages
-        while True:
+        while (time.time() - start_time) < 10 :  # 10 second timeout
             if self.ser.in_waiting:
                 line = self.ser.readline().decode('utf-8', errors='ignore').strip()
-                if line and ',' in line and line.count(',') >= 10:  # Looks like data
+                
+                # Only collect lines that look like CSV data (have commas)
+                if ',' in line and line.count(',') >= 10:
                     all_lines.append(line)
-                    last_data_time = time.time()
                     if len(all_lines) == 1:
-                        print("Data transmission started...")
-                    if len(all_lines) % 50 == 0:
-                        print(f"Received {len(all_lines)} lines...")
-                elif line:
-                    print(f"Skipping: {line}")
+                        print("Data collection started...")
+                    if len(all_lines) % 100 == 0:
+                        print(f"Collected {len(all_lines)} lines...")
             
-            # Check if we haven't received data for a while
-            if time.time() - last_data_time > timeout_duration and all_lines:
-                print(f"No new data for {timeout_duration} seconds. Transmission complete.")
-                break
-            
-            # Overall timeout
-            if time.time() - start_time > 300:  # 5 minutes max
-                print("Timeout reached. Stopping data collection.")
-                break
+            time.sleep(0.01)
         
         print(f"Collected {len(all_lines)} lines of data")
         
@@ -151,11 +151,11 @@ class ArduinoDataVisualizer:
         
         # 4. Acceleration
         ax4 = fig.add_subplot(gs[1, 0])
-        ax4.plot(time_data, self.df['AccelX'], 'r-', linewidth=1.5, label='X-axis', alpha=0.8)
+        ax4.plot(time_data, self.df['AccelXpip'], 'r-', linewidth=1.5, label='X-axis', alpha=0.8)
         ax4.plot(time_data, self.df['AccelY'], 'g-', linewidth=1.5, label='Y-axis', alpha=0.8)
         ax4.plot(time_data, self.df['AccelZ'], 'b-', linewidth=1.5, label='Z-axis', alpha=0.8)
         # Calculate total acceleration
-        total_accel = np.sqrt(self.df['AccelX']**2 + self.df['AccelY']**2 + self.df['AccelZ']**2)
+        total_accel = np.sqrt(self.df['AccelXpip']**2 + self.df['AccelY']**2 + self.df['AccelZ']**2)
         ax4.plot(time_data, total_accel, 'white', linewidth=2, label='Total', alpha=0.9)
         ax4.set_title('Acceleration', fontweight='bold', color='white')
         ax4.set_xlabel('Time (s)')
@@ -299,8 +299,8 @@ Final Stage: {int(self.df['Stage'].iloc[-1])}                            Average
             if self.ser:
                 self.ser.close()
                 print("Serial connection closed.")
-
+                
 if __name__ == "__main__":
     # Change port as needed: 'COM3' (Windows), '/dev/ttyUSB0' (Linux), '/dev/cu.usbmodem...' (Mac)
-    analyzer = ArduinoDataVisualizer(port='/dev/cu.usbmodem141101', baudrate=115200)
+    analyzer = ArduinoDataVisualizer(port='/dev/ttyACM0', baudrate=115200)
     analyzer.run_analysis()
