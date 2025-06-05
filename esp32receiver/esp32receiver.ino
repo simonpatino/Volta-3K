@@ -262,7 +262,7 @@ void loop() {
                   float requestedFrequencyMHz = atof(freqStrMHz.c_str()); 
                   long requestedFrequencyHz = (long)(requestedFrequencyMHz * 1E6);
 
-                  if (requestedFrequencyHz >= 905E6 && requestedFrequencyHz <= 930E6) {
+                  if (requestedFrequencyHz >= 902E6 && requestedFrequencyHz <= 928E6) {
                       frequencyStringToSend = String(requestedFrequencyHz); 
                       Serial.print("Frequency ");
                       Serial.print(freqStrMHz);

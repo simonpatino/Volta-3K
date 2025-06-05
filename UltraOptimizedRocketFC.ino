@@ -46,7 +46,7 @@
 #define LORA_NSS 10
 #define LORA_RST 9
 #define LORA_DI0 29        // Updated from Constants.h
-#define LORA_FREQ 915E6
+#define LORA_FREQ 918.250E6
 #define LORA_SYNC 0xAF
 
 // Storage pins - OPTIMIZED for external flash module
@@ -88,7 +88,7 @@ const unsigned long LORA_TX_INTERVAL_NORMAL = 500;   // 100ms = 10Hz (normal tel
 const unsigned long LORA_TX_INTERVAL_COMMAND_MODE = 500;  // 500ms = 2Hz (when commands detected)
 const unsigned long COMMAND_ACTIVITY_TIMEOUT = 2000;     // Return to normal after 2 seconds of no commands
 
-const unsigned long GPS_READ_INTERVAL = 1000;  // 1 second GPS updates
+const unsigned long GPS_READ_INTERVAL = 1500;  // 1 second GPS updates
 const unsigned long SENSOR_READ_INTERVAL = 25;  // 25ms = 40Hz sensor sampling (ultra fast!)
 const unsigned long STATUS_TX_INTERVAL = 10000;  // 10 seconds for debugging status
 
@@ -196,14 +196,14 @@ void setup() {
     Serial.println("╔══════════════════════════════════════════════════════════════╗");
     Serial.println("║    🚀 VOLTA-3K ULTRA-OPTIMIZED ROCKET FLIGHT COMPUTER 🚀     ║");
     Serial.println("║══════════════════════════════════════════════════════════════║");
-    Serial.println("║  📝 WRITER MODE DETECTION: 5 SECOND WINDOW ACTIVE 📝         ║");
+    Serial.println("║  📝 WRITER MODE DETECTION: 10 SECOND WINDOW ACTIVE 📝         ║");
     Serial.println("║                                                              ║");
     Serial.println("║     ⚡ Type anything to enter WRITER MODE for file access     ║");
     Serial.println("║     🔥 Stay silent for NORMAL FLIGHT COMPUTER MODE           ║");
     Serial.println("╚══════════════════════════════════════════════════════════════╝");
     
-    // 5-second startup timer with writer mode detection (from original main.ino)
-    float STAR_TIME = 5.0f;
+    // 5-second startup timer with writer mode detection 
+    float STAR_TIME = 10.0f;
     unsigned long startTime = millis();
     
     while ((STAR_TIME * 1000 - (millis() - startTime)) > 0) {
@@ -241,7 +241,7 @@ void setup() {
     
     // Continue with normal rocket flight computer setup
     // Setup verbose switch pin
-    pinMode(VERBOSE_SWITCH, INPUT);  // Pin 20 with pullup
+    pinMode(VERBOSE_SWITCH, INPUT);  // Pin 20 
     
     // =============================================================================
     // SMART STORAGE INITIALIZATION - FALLBACK SYSTEM (Feature 2)
@@ -368,7 +368,7 @@ void setup() {
     
     if (VERBOSE) {
         Serial.println("✅ LoRa system ready!");
-        Serial.println("   📶 Frequency: 915 MHz");
+        Serial.println("   📶 Frequency: 918.250 MHz");
         Serial.println("   🔊 TX Power: +17dBm (3km range)");
         Serial.println("   🎯 Sync Word: 0xAF");
         Serial.println("   📻 Command reception active");
@@ -401,14 +401,6 @@ void setup() {
     }
     if (VERBOSE) Serial.println("✅ BME280 connected");
     
-    // Set BME280 to MID_RATE mode (like original SensorManager)
-    if (VERBOSE) Serial.print("⚙️  Configuring BME280 sampling mode...");
-    bme.setSampling(Adafruit_BME280::MODE_NORMAL, 
-                    Adafruit_BME280::SAMPLING_X2, 
-                    Adafruit_BME280::SAMPLING_X16, 
-                    Adafruit_BME280::SAMPLING_NONE, 
-                    Adafruit_BME280::FILTER_X16, 
-                    Adafruit_BME280::STANDBY_MS_0_5);
     if (VERBOSE) Serial.println("✅ Optimized for flight");
     
     // Configure BNO055 for maximum precision
@@ -533,7 +525,7 @@ void loop() {
         updateStage();
         
         // =============================================================================
-        // COMPREHENSIVE DATA LOGGING (Feature 2) - Log all sensor data to SD card
+        // COMPREHENSIVE DATA LOGGING - Log all sensor data 
         // =============================================================================
         logComprehensiveData();
         
@@ -593,7 +585,7 @@ void loop() {
             Serial.println(flight.longitude, 6);
         }
         Serial.print("   📶 Transmission Mode: ");
-        Serial.println(commandModeActive ? "🐌 COMMAND (2Hz)" : "🚀 NORMAL (10Hz)");
+        Serial.println(commandModeActive ? "🐌 COMMAND " : "🚀 NORMAL ");
         
         lastStatusTime = now;
     }
@@ -690,7 +682,7 @@ void updateStage() {
     
     switch (currentStage) {
         case PAD:
-            if (totalAccel > LAUNCH_ACCEL) {
+            if (totalAccel > LAUNCH_ACCEL & groundConfirmation) {
                 currentStage = BOOST;
                 if (VERBOSE) {
                     Serial.println();
@@ -811,7 +803,7 @@ void onReceive(int packetSize) {
         lastCommandTime = millis();
         if (!commandModeActive) {
             commandModeActive = true;
-            if (VERBOSE) Serial.println("\n🐌📡 Switching to slow telemetry mode (2Hz) for reliable commands");
+            if (VERBOSE) Serial.println("\n🐌📡 Switching to slow telemetry mode for reliable commands");
         }
         
         // Read the command byte (always first byte)
@@ -860,7 +852,7 @@ void onReceive(int packetSize) {
             case 0x08:  // Frequency Change Request
                 if (payload.length() > 0) {
                     long newFrequency = atol(payload.c_str());
-                    if (newFrequency >= 915E6 && newFrequency <= 930E6) {
+                    if (newFrequency >= 902E6 && newFrequency <= 928E6) {
                         if (VERBOSE) {
                             Serial.print("   📡🔄 Frequency change request: ");
                             Serial.print(newFrequency / 1E6, 1);
@@ -1147,7 +1139,7 @@ void logComprehensiveData() {
         dataFile.print(",");
         dataFile.print(flight.altitude, 3);         // Altitude (3 decimals)
         dataFile.print(",");
-        dataFile.print(flight.humidity, 2);
+        dataFile.print(flight.humidity, 3);
         dataFile.print(",");
         dataFile.print(flight.maxAlt, 3);           // Max altitude (3 decimals)
         dataFile.print(",");
